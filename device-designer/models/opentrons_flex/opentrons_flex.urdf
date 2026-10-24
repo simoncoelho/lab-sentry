@@ -1,901 +1,136 @@
 <?xml version='1.0' encoding='utf-8'?>
-<robot name="opentrons_flex_single_5_1000ul">
+<robot name="opentrons_flex_8channel_photo_reference">
   <!--
-Third-party reconstruction, not manufacturer CAD; not dynamics-ready.
-Source: https://huggingface.co/datasets/MBZUAI/ChemLab-Assets
-ChemLab-Assets 1.4.0, revision a6c006f921c9bee62f5585dd7f769163a7f51573.
-Copyright (c) 2026 Zirui Song, Jiadong Zhang, Jiahao Zhang, Xiaosong Ma,
-Xiaojun Chang, Xiuying Chen (MBZUAI).
-Assets licensed CC BY-NC 4.0 (noncommercial):
-https://creativecommons.org/licenses/by-nc/4.0/
-https://creativecommons.org/licenses/by-nc/4.0/legalcode
-Local changes: renamed URDF and added this attribution; original geometry and limits retained.
-Upstream disables uncalibrated actuation with zero effort/velocity limits.
-Retrieved 2026-10-24.
+Visual assembly derived from user-supplied flex-model.glb, SHA256 b3280f704c6f28663ba9252d310747a512ca6a8e8504e33dd16676b0b15078fe.
+Source GLB identifies a FLEX TOP LEVEL ASSEMBLY WITH STAGING SLOT SAMPLE.STEP conversion.
+Original author/license not supplied; this is not a claim of manufacturer-certified CAD.
+Converted glTF Y-up to URDF Z-up, retaining source scale and neutral component positions.
+Geometry split into fixed chassis, windows, folding door, gantry and carriage.
+The missing lower-right window mirrors the supplied lower-left window.
+Complete deck surround, twelve recessed working inserts, four staging pads, clear locators, blue clips,
+coordinate markings and 8-channel pipette exterior are photo-informed reconstructions guided by IMG_6746-6752.
+The incomplete source deck fixtures were removed to avoid overlapping or duplicate surfaces.
+Deck pitch 164 x 107 mm: https://github.com/Opentrons/opentrons/blob/edge/shared-data/deck/definitions/3/ot3_standard.json
+Envelope approximately 872.85 x 690.96 x 839.90 mm; source CAD tessellation retained.
+Joint travel, hinge axes, collision boxes and pipette dimensions are approximations, not calibration data.
+Mass distribution is unknown: dynamics omitted, effort/velocity zero disables uncalibrated actuation.
+Revised 2026-10-24. Previous ChemLab visual geometry is replaced, not relabeled as manufacturer CAD.
 -->
-  <link name="asset_root">
-    <inertial>
-      <origin xyz="0 0 0.42" rpy="0 0 0" />
-      <mass value="88.5" />
-      <inertia ixx="8.7150375" iyy="10.785937500000001" izz="9.093375" ixy="0" ixz="0" iyz="0" />
-    </inertial>
-  </link>
-  <!--Whole-assembly bbox inertia only; child mass/inertia unknown and omitted. Not dynamics-ready. Joint effort/velocity zero explicitly disables uncalibrated actuation.-->
-  <link name="base">
+  <link name="asset_root" />
+  <link name="chassis">
     <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/base.obj" scale="1 1 1" />
+        <mesh filename="meshes/cad_chassis.obj" />
       </geometry>
     </visual>
-    <collision name="base_proxy_0">
-      <origin xyz="0 0 0.08" rpy="0 0 0" />
+    <collision>
+      <origin xyz="0 0 0.08" />
       <geometry>
-        <box size="0.87 0.69 0.12" />
+        <box size="0.85 0.67 0.14" />
       </geometry>
     </collision>
-    <collision name="base_proxy_1">
-      <origin xyz="0 -0.338 0.062" rpy="0 0 0" />
+    <collision>
+      <origin xyz="0 0.322 0.5" />
       <geometry>
-        <box size="0.79 0.013 0.044" />
+        <box size="0.85 0.04 0.65" />
       </geometry>
     </collision>
-    <collision name="base_proxy_2">
-      <origin xyz="-0.37 -0.28 0.01" rpy="0 0 0" />
+    <collision>
+      <origin xyz="-0.41 -0.307 0.48" />
       <geometry>
-        <cylinder radius="0.028" length="0.02" />
+        <box size="0.05 0.06 0.71" />
       </geometry>
     </collision>
-    <collision name="base_proxy_3">
-      <origin xyz="-0.37 0.28 0.01" rpy="0 0 0" />
+    <collision>
+      <origin xyz="-0.41 0.307 0.48" />
       <geometry>
-        <cylinder radius="0.028" length="0.02" />
+        <box size="0.05 0.06 0.71" />
       </geometry>
     </collision>
-    <collision name="base_proxy_4">
-      <origin xyz="0.37 -0.28 0.01" rpy="0 0 0" />
+    <collision>
+      <origin xyz="0.41 -0.307 0.48" />
       <geometry>
-        <cylinder radius="0.028" length="0.02" />
+        <box size="0.05 0.06 0.71" />
       </geometry>
     </collision>
-    <collision name="base_proxy_5">
-      <origin xyz="0.37 0.28 0.01" rpy="0 0 0" />
+    <collision>
+      <origin xyz="0.41 0.307 0.48" />
       <geometry>
-        <cylinder radius="0.028" length="0.02" />
+        <box size="0.05 0.06 0.71" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0 -0.31 0.81" />
+      <geometry>
+        <box size="0.85 0.06 0.06" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0 0.31 0.81" />
+      <geometry>
+        <box size="0.85 0.06 0.06" />
       </geometry>
     </collision>
   </link>
-  <joint name="base_joint" type="fixed">
+  <joint name="chassis_joint" type="fixed">
     <parent link="asset_root" />
-    <child link="base" />
+    <child link="chassis" />
     <origin xyz="0 0 0" rpy="0 0 0" />
   </joint>
-  <link name="frame">
+  <link name="windows">
     <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/frame.obj" scale="1 1 1" />
+        <mesh filename="meshes/cad_windows.obj" />
       </geometry>
     </visual>
-    <collision name="frame_proxy_0">
-      <origin xyz="-0.407 -0.308 0.48" rpy="0 0 0" />
+    <collision>
+      <origin xyz="-0.433 0 0.45" />
       <geometry>
-        <box size="0.04 0.047 0.68" />
+        <box size="0.005 0.55 0.62" />
       </geometry>
     </collision>
-    <collision name="frame_proxy_1">
-      <origin xyz="-0.407 0.308 0.48" rpy="0 0 0" />
+    <collision>
+      <origin xyz="0.433 0 0.45" />
       <geometry>
-        <box size="0.04 0.047 0.68" />
-      </geometry>
-    </collision>
-    <collision name="frame_proxy_2">
-      <origin xyz="0.267 -0.308 0.48" rpy="0 0 0" />
-      <geometry>
-        <box size="0.04 0.047 0.68" />
-      </geometry>
-    </collision>
-    <collision name="frame_proxy_3">
-      <origin xyz="0.267 0.308 0.48" rpy="0 0 0" />
-      <geometry>
-        <box size="0.04 0.047 0.68" />
-      </geometry>
-    </collision>
-    <collision name="frame_proxy_4">
-      <origin xyz="-0.07 -0.303 0.8" rpy="0 0 0" />
-      <geometry>
-        <box size="0.72 0.084 0.08" />
-      </geometry>
-    </collision>
-    <collision name="frame_proxy_5">
-      <origin xyz="-0.07 0.303 0.8" rpy="0 0 0" />
-      <geometry>
-        <box size="0.72 0.084 0.08" />
-      </geometry>
-    </collision>
-    <collision name="frame_proxy_6">
-      <origin xyz="-0.407 0 0.807" rpy="0 0 0" />
-      <geometry>
-        <box size="0.056 0.53 0.066" />
-      </geometry>
-    </collision>
-    <collision name="frame_proxy_7">
-      <origin xyz="0.267 0 0.807" rpy="0 0 0" />
-      <geometry>
-        <box size="0.056 0.53 0.066" />
-      </geometry>
-    </collision>
-    <collision name="frame_proxy_8">
-      <origin xyz="-0.07 0.326 0.215" rpy="0 0 0" />
-      <geometry>
-        <box size="0.63 0.022 0.14" />
+        <box size="0.005 0.55 0.62" />
       </geometry>
     </collision>
   </link>
-  <joint name="frame_joint" type="fixed">
+  <joint name="windows_joint" type="fixed">
     <parent link="asset_root" />
-    <child link="frame" />
-    <origin xyz="0 0 0" rpy="0 0 0" />
-  </joint>
-  <link name="enclosure">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="meshes/enclosure.obj" scale="1 1 1" />
-      </geometry>
-    </visual>
-    <collision name="enclosure_proxy_0">
-      <origin xyz="-0.07 0.332 0.49" rpy="0 0 0" />
-      <geometry>
-        <box size="0.627 0.008 0.4" />
-      </geometry>
-    </collision>
-    <collision name="enclosure_proxy_1">
-      <origin xyz="-0.423 0 0.24" rpy="0 0 0" />
-      <geometry>
-        <box size="0.008 0.57 0.16" />
-      </geometry>
-    </collision>
-    <collision name="enclosure_proxy_2">
-      <origin xyz="-0.423 0.269 0.49" rpy="0 0 0" />
-      <geometry>
-        <box size="0.008 0.045 0.35" />
-      </geometry>
-    </collision>
-    <collision name="enclosure_proxy_3">
-      <origin xyz="-0.423 0 0.731" rpy="0 0 0" />
-      <geometry>
-        <box size="0.008 0.57 0.04" />
-      </geometry>
-    </collision>
-    <collision name="enclosure_proxy_4">
-      <origin xyz="0.283 0 0.24" rpy="0 0 0" />
-      <geometry>
-        <box size="0.008 0.57 0.16" />
-      </geometry>
-    </collision>
-    <collision name="enclosure_proxy_5">
-      <origin xyz="0.283 0.269 0.49" rpy="0 0 0" />
-      <geometry>
-        <box size="0.008 0.045 0.35" />
-      </geometry>
-    </collision>
-    <collision name="enclosure_proxy_6">
-      <origin xyz="0.283 0 0.731" rpy="0 0 0" />
-      <geometry>
-        <box size="0.008 0.57 0.04" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="enclosure_joint" type="fixed">
-    <parent link="asset_root" />
-    <child link="enclosure" />
-    <origin xyz="0 0 0" rpy="0 0 0" />
-  </joint>
-  <link name="deck">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="meshes/deck.obj" scale="1 1 1" />
-      </geometry>
-    </visual>
-    <collision name="deck_proxy_0">
-      <origin xyz="-0.07 0 0.153" rpy="0 0 0" />
-      <geometry>
-        <box size="0.638 0.606 0.024" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="deck_joint" type="fixed">
-    <parent link="asset_root" />
-    <child link="deck" />
-    <origin xyz="0 0 0" rpy="0 0 0" />
-  </joint>
-  <link name="slot_a1">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="meshes/slot_a1.obj" scale="1 1 1" />
-      </geometry>
-    </visual>
-    <collision name="slot_a1_proxy_0">
-      <origin xyz="0 0 0.001" rpy="0 0 0" />
-      <geometry>
-        <box size="0.141 0.105 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_a1_proxy_1">
-      <origin xyz="0 0 0.0025" rpy="0 0 0" />
-      <geometry>
-        <box size="0.133 0.097 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_a1_proxy_2">
-      <origin xyz="-0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-    <collision name="slot_a1_proxy_3">
-      <origin xyz="0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="slot_a1_joint" type="fixed">
-    <parent link="asset_root" />
-    <child link="slot_a1" />
-    <origin xyz="-0.23 0.21 0.165" rpy="0 0 0" />
-  </joint>
-  <link name="slot_a2">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="meshes/slot_a2.obj" scale="1 1 1" />
-      </geometry>
-    </visual>
-    <collision name="slot_a2_proxy_0">
-      <origin xyz="0 0 0.001" rpy="0 0 0" />
-      <geometry>
-        <box size="0.141 0.105 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_a2_proxy_1">
-      <origin xyz="0 0 0.0025" rpy="0 0 0" />
-      <geometry>
-        <box size="0.133 0.097 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_a2_proxy_2">
-      <origin xyz="-0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-    <collision name="slot_a2_proxy_3">
-      <origin xyz="0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="slot_a2_joint" type="fixed">
-    <parent link="asset_root" />
-    <child link="slot_a2" />
-    <origin xyz="-0.05 0.21 0.165" rpy="0 0 0" />
-  </joint>
-  <link name="slot_a3">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="meshes/slot_a3.obj" scale="1 1 1" />
-      </geometry>
-    </visual>
-    <collision name="slot_a3_proxy_0">
-      <origin xyz="0 0 0.001" rpy="0 0 0" />
-      <geometry>
-        <box size="0.141 0.105 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_a3_proxy_1">
-      <origin xyz="0 0 0.0025" rpy="0 0 0" />
-      <geometry>
-        <box size="0.133 0.097 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_a3_proxy_2">
-      <origin xyz="-0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-    <collision name="slot_a3_proxy_3">
-      <origin xyz="0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="slot_a3_joint" type="fixed">
-    <parent link="asset_root" />
-    <child link="slot_a3" />
-    <origin xyz="0.13 0.21 0.165" rpy="0 0 0" />
-  </joint>
-  <link name="slot_a4">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="meshes/slot_a4.obj" scale="1 1 1" />
-      </geometry>
-    </visual>
-    <collision name="slot_a4_proxy_0">
-      <origin xyz="-0.05 0 -0.009" rpy="0 0 0" />
-      <geometry>
-        <box size="0.24 0.109 0.012" />
-      </geometry>
-    </collision>
-    <collision name="slot_a4_proxy_1">
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <box size="0.148 0.105 0.008" />
-      </geometry>
-    </collision>
-    <collision name="slot_a4_proxy_2">
-      <origin xyz="-0.072 0 0.006" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.1 0.007" />
-      </geometry>
-    </collision>
-    <collision name="slot_a4_proxy_3">
-      <origin xyz="0.072 0 0.006" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.1 0.007" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="slot_a4_joint" type="fixed">
-    <parent link="asset_root" />
-    <child link="slot_a4" />
-    <origin xyz="0.335 0.21 0.165" rpy="0 0 0" />
-  </joint>
-  <link name="slot_b1">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="meshes/slot_b1.obj" scale="1 1 1" />
-      </geometry>
-    </visual>
-    <collision name="slot_b1_proxy_0">
-      <origin xyz="0 0 0.001" rpy="0 0 0" />
-      <geometry>
-        <box size="0.141 0.105 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_b1_proxy_1">
-      <origin xyz="0 0 0.0025" rpy="0 0 0" />
-      <geometry>
-        <box size="0.133 0.097 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_b1_proxy_2">
-      <origin xyz="-0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-    <collision name="slot_b1_proxy_3">
-      <origin xyz="0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="slot_b1_joint" type="fixed">
-    <parent link="asset_root" />
-    <child link="slot_b1" />
-    <origin xyz="-0.23 0.07 0.165" rpy="0 0 0" />
-  </joint>
-  <link name="slot_b2">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="meshes/slot_b2.obj" scale="1 1 1" />
-      </geometry>
-    </visual>
-    <collision name="slot_b2_proxy_0">
-      <origin xyz="0 0 0.001" rpy="0 0 0" />
-      <geometry>
-        <box size="0.141 0.105 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_b2_proxy_1">
-      <origin xyz="0 0 0.0025" rpy="0 0 0" />
-      <geometry>
-        <box size="0.133 0.097 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_b2_proxy_2">
-      <origin xyz="-0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-    <collision name="slot_b2_proxy_3">
-      <origin xyz="0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="slot_b2_joint" type="fixed">
-    <parent link="asset_root" />
-    <child link="slot_b2" />
-    <origin xyz="-0.05 0.07 0.165" rpy="0 0 0" />
-  </joint>
-  <link name="slot_b3">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="meshes/slot_b3.obj" scale="1 1 1" />
-      </geometry>
-    </visual>
-    <collision name="slot_b3_proxy_0">
-      <origin xyz="0 0 0.001" rpy="0 0 0" />
-      <geometry>
-        <box size="0.141 0.105 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_b3_proxy_1">
-      <origin xyz="0 0 0.0025" rpy="0 0 0" />
-      <geometry>
-        <box size="0.133 0.097 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_b3_proxy_2">
-      <origin xyz="-0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-    <collision name="slot_b3_proxy_3">
-      <origin xyz="0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="slot_b3_joint" type="fixed">
-    <parent link="asset_root" />
-    <child link="slot_b3" />
-    <origin xyz="0.13 0.07 0.165" rpy="0 0 0" />
-  </joint>
-  <link name="slot_b4">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="meshes/slot_b4.obj" scale="1 1 1" />
-      </geometry>
-    </visual>
-    <collision name="slot_b4_proxy_0">
-      <origin xyz="-0.05 0 -0.009" rpy="0 0 0" />
-      <geometry>
-        <box size="0.24 0.109 0.012" />
-      </geometry>
-    </collision>
-    <collision name="slot_b4_proxy_1">
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <box size="0.148 0.105 0.008" />
-      </geometry>
-    </collision>
-    <collision name="slot_b4_proxy_2">
-      <origin xyz="-0.072 0 0.006" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.1 0.007" />
-      </geometry>
-    </collision>
-    <collision name="slot_b4_proxy_3">
-      <origin xyz="0.072 0 0.006" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.1 0.007" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="slot_b4_joint" type="fixed">
-    <parent link="asset_root" />
-    <child link="slot_b4" />
-    <origin xyz="0.335 0.07 0.165" rpy="0 0 0" />
-  </joint>
-  <link name="slot_c1">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="meshes/slot_c1.obj" scale="1 1 1" />
-      </geometry>
-    </visual>
-    <collision name="slot_c1_proxy_0">
-      <origin xyz="0 0 0.001" rpy="0 0 0" />
-      <geometry>
-        <box size="0.141 0.105 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_c1_proxy_1">
-      <origin xyz="0 0 0.0025" rpy="0 0 0" />
-      <geometry>
-        <box size="0.133 0.097 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_c1_proxy_2">
-      <origin xyz="-0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-    <collision name="slot_c1_proxy_3">
-      <origin xyz="0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="slot_c1_joint" type="fixed">
-    <parent link="asset_root" />
-    <child link="slot_c1" />
-    <origin xyz="-0.23 -0.07 0.165" rpy="0 0 0" />
-  </joint>
-  <link name="slot_c2">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="meshes/slot_c2.obj" scale="1 1 1" />
-      </geometry>
-    </visual>
-    <collision name="slot_c2_proxy_0">
-      <origin xyz="0 0 0.001" rpy="0 0 0" />
-      <geometry>
-        <box size="0.141 0.105 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_c2_proxy_1">
-      <origin xyz="0 0 0.0025" rpy="0 0 0" />
-      <geometry>
-        <box size="0.133 0.097 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_c2_proxy_2">
-      <origin xyz="-0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-    <collision name="slot_c2_proxy_3">
-      <origin xyz="0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="slot_c2_joint" type="fixed">
-    <parent link="asset_root" />
-    <child link="slot_c2" />
-    <origin xyz="-0.05 -0.07 0.165" rpy="0 0 0" />
-  </joint>
-  <link name="slot_c3">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="meshes/slot_c3.obj" scale="1 1 1" />
-      </geometry>
-    </visual>
-    <collision name="slot_c3_proxy_0">
-      <origin xyz="0 0 0.001" rpy="0 0 0" />
-      <geometry>
-        <box size="0.141 0.105 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_c3_proxy_1">
-      <origin xyz="0 0 0.0025" rpy="0 0 0" />
-      <geometry>
-        <box size="0.133 0.097 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_c3_proxy_2">
-      <origin xyz="-0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-    <collision name="slot_c3_proxy_3">
-      <origin xyz="0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="slot_c3_joint" type="fixed">
-    <parent link="asset_root" />
-    <child link="slot_c3" />
-    <origin xyz="0.13 -0.07 0.165" rpy="0 0 0" />
-  </joint>
-  <link name="slot_c4">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="meshes/slot_c4.obj" scale="1 1 1" />
-      </geometry>
-    </visual>
-    <collision name="slot_c4_proxy_0">
-      <origin xyz="-0.05 0 -0.009" rpy="0 0 0" />
-      <geometry>
-        <box size="0.24 0.109 0.012" />
-      </geometry>
-    </collision>
-    <collision name="slot_c4_proxy_1">
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <box size="0.148 0.105 0.008" />
-      </geometry>
-    </collision>
-    <collision name="slot_c4_proxy_2">
-      <origin xyz="-0.072 0 0.006" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.1 0.007" />
-      </geometry>
-    </collision>
-    <collision name="slot_c4_proxy_3">
-      <origin xyz="0.072 0 0.006" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.1 0.007" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="slot_c4_joint" type="fixed">
-    <parent link="asset_root" />
-    <child link="slot_c4" />
-    <origin xyz="0.335 -0.07 0.165" rpy="0 0 0" />
-  </joint>
-  <link name="slot_d1">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="meshes/slot_d1.obj" scale="1 1 1" />
-      </geometry>
-    </visual>
-    <collision name="slot_d1_proxy_0">
-      <origin xyz="0 0 0.001" rpy="0 0 0" />
-      <geometry>
-        <box size="0.141 0.105 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_d1_proxy_1">
-      <origin xyz="0 0 0.0025" rpy="0 0 0" />
-      <geometry>
-        <box size="0.133 0.097 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_d1_proxy_2">
-      <origin xyz="-0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-    <collision name="slot_d1_proxy_3">
-      <origin xyz="0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="slot_d1_joint" type="fixed">
-    <parent link="asset_root" />
-    <child link="slot_d1" />
-    <origin xyz="-0.23 -0.21 0.165" rpy="0 0 0" />
-  </joint>
-  <link name="slot_d2">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="meshes/slot_d2.obj" scale="1 1 1" />
-      </geometry>
-    </visual>
-    <collision name="slot_d2_proxy_0">
-      <origin xyz="0 0 0.001" rpy="0 0 0" />
-      <geometry>
-        <box size="0.141 0.105 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_d2_proxy_1">
-      <origin xyz="0 0 0.0025" rpy="0 0 0" />
-      <geometry>
-        <box size="0.133 0.097 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_d2_proxy_2">
-      <origin xyz="-0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-    <collision name="slot_d2_proxy_3">
-      <origin xyz="0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="slot_d2_joint" type="fixed">
-    <parent link="asset_root" />
-    <child link="slot_d2" />
-    <origin xyz="-0.05 -0.21 0.165" rpy="0 0 0" />
-  </joint>
-  <link name="slot_d3">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="meshes/slot_d3.obj" scale="1 1 1" />
-      </geometry>
-    </visual>
-    <collision name="slot_d3_proxy_0">
-      <origin xyz="0 0 0.001" rpy="0 0 0" />
-      <geometry>
-        <box size="0.141 0.105 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_d3_proxy_1">
-      <origin xyz="0 0 0.0025" rpy="0 0 0" />
-      <geometry>
-        <box size="0.133 0.097 0.002" />
-      </geometry>
-    </collision>
-    <collision name="slot_d3_proxy_2">
-      <origin xyz="-0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-    <collision name="slot_d3_proxy_3">
-      <origin xyz="0.07 0.026 0.005" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.03 0.01" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="slot_d3_joint" type="fixed">
-    <parent link="asset_root" />
-    <child link="slot_d3" />
-    <origin xyz="0.13 -0.21 0.165" rpy="0 0 0" />
-  </joint>
-  <link name="slot_d4">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="meshes/slot_d4.obj" scale="1 1 1" />
-      </geometry>
-    </visual>
-    <collision name="slot_d4_proxy_0">
-      <origin xyz="-0.05 0 -0.009" rpy="0 0 0" />
-      <geometry>
-        <box size="0.24 0.109 0.012" />
-      </geometry>
-    </collision>
-    <collision name="slot_d4_proxy_1">
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <box size="0.148 0.105 0.008" />
-      </geometry>
-    </collision>
-    <collision name="slot_d4_proxy_2">
-      <origin xyz="-0.072 0 0.006" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.1 0.007" />
-      </geometry>
-    </collision>
-    <collision name="slot_d4_proxy_3">
-      <origin xyz="0.072 0 0.006" rpy="0 0 0" />
-      <geometry>
-        <box size="0.004 0.1 0.007" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="slot_d4_joint" type="fixed">
-    <parent link="asset_root" />
-    <child link="slot_d4" />
-    <origin xyz="0.335 -0.21 0.165" rpy="0 0 0" />
-  </joint>
-  <link name="y_rails">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="meshes/y_rails.obj" scale="1 1 1" />
-      </geometry>
-    </visual>
-    <collision name="y_rails_proxy_0">
-      <origin xyz="-0.35 0 0.656" rpy="0 0 0" />
-      <geometry>
-        <box size="0.045 0.574 0.036" />
-      </geometry>
-    </collision>
-    <collision name="y_rails_proxy_1">
-      <origin xyz="-0.35 0 0.68" rpy="1.57079633 0 0" />
-      <geometry>
-        <cylinder radius="0.007" length="0.55" />
-      </geometry>
-    </collision>
-    <collision name="y_rails_proxy_2">
-      <origin xyz="0.22 0 0.656" rpy="0 0 0" />
-      <geometry>
-        <box size="0.045 0.574 0.036" />
-      </geometry>
-    </collision>
-    <collision name="y_rails_proxy_3">
-      <origin xyz="0.22 0 0.68" rpy="1.57079633 0 0" />
-      <geometry>
-        <cylinder radius="0.007" length="0.55" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="y_rails_joint" type="fixed">
-    <parent link="asset_root" />
-    <child link="y_rails" />
+    <child link="windows" />
     <origin xyz="0 0 0" rpy="0 0 0" />
   </joint>
   <link name="gantry_y">
     <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/gantry_y.obj" scale="1 1 1" />
+        <mesh filename="meshes/cad_gantry.obj" />
       </geometry>
     </visual>
-    <collision name="gantry_y_proxy_0">
-      <origin xyz="-0.065 0 0.012" rpy="0 0 0" />
+    <collision>
+      <origin xyz="0 0 0" />
       <geometry>
-        <box size="0.62 0.07 0.06" />
-      </geometry>
-    </collision>
-    <collision name="gantry_y_proxy_1">
-      <origin xyz="-0.065 -0.044 -0.007" rpy="0 1.57079633 0" />
-      <geometry>
-        <cylinder radius="0.006" length="0.6" />
-      </geometry>
-    </collision>
-    <collision name="gantry_y_proxy_2">
-      <origin xyz="-0.065 -0.044 0.032" rpy="0 1.57079633 0" />
-      <geometry>
-        <cylinder radius="0.006" length="0.6" />
-      </geometry>
-    </collision>
-    <collision name="gantry_y_proxy_3">
-      <origin xyz="-0.065 0.042 0.009" rpy="0 0 0" />
-      <geometry>
-        <box size="0.59 0.004 0.012" />
+        <box size="0.77 0.05 0.145" />
       </geometry>
     </collision>
   </link>
   <joint name="gantry_y_joint" type="prismatic">
     <parent link="asset_root" />
     <child link="gantry_y" />
-    <origin xyz="0 0 0.64" rpy="0 0 0" />
+    <origin xyz="0 0 0.51" rpy="0 0 0" />
     <axis xyz="0 1 0" />
-    <limit lower="-0.21" upper="0.21" effort="0" velocity="0" />
+    <limit lower="-0.1" upper="0.22" effort="0" velocity="0" />
   </joint>
   <link name="carriage_x">
     <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/carriage_x.obj" scale="1 1 1" />
+        <mesh filename="meshes/cad_carriage.obj" />
       </geometry>
     </visual>
-    <collision name="carriage_x_proxy_0">
-      <origin xyz="0 -0.015 -0.018" rpy="0 0 0" />
+    <collision>
+      <origin xyz="0 -0.02 0.1" />
       <geometry>
-        <box size="0.078 0.086 0.114" />
-      </geometry>
-    </collision>
-    <collision name="carriage_x_proxy_1">
-      <origin xyz="0 -0.058 -0.077" rpy="0 0 0" />
-      <geometry>
-        <box size="0.045 0.031 0.21" />
+        <box size="0.18 0.12 0.4" />
       </geometry>
     </collision>
   </link>
@@ -904,166 +139,372 @@ Retrieved 2026-10-24.
     <child link="carriage_x" />
     <origin xyz="0 0 0" rpy="0 0 0" />
     <axis xyz="1 0 0" />
-    <limit lower="-0.24" upper="0.24" effort="0" velocity="0" />
+    <limit lower="-0.28" upper="0.24" effort="0" velocity="0" />
   </joint>
   <link name="carriage_z">
     <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/carriage_z.obj" scale="1 1 1" />
+        <mesh filename="meshes/pipette_8channel.obj" />
       </geometry>
     </visual>
-    <collision name="carriage_z_proxy_0">
-      <origin xyz="0 -0.048 0.046" rpy="0 0 0" />
+    <collision>
+      <origin xyz="0 0 -0.015" />
       <geometry>
-        <box size="0.048 0.044 0.14" />
+        <box size="0.061 0.09 0.28" />
       </geometry>
     </collision>
   </link>
   <joint name="carriage_z_joint" type="prismatic">
     <parent link="carriage_x" />
     <child link="carriage_z" />
-    <origin xyz="0 0 -0.22" rpy="0 0 0" />
-    <axis xyz="0 0 1" />
-    <limit lower="0" upper="0.22" effort="0" velocity="0" />
+    <origin xyz="-0.038 -0.113 0.09" rpy="0 0 0" />
+    <axis xyz="0 0 -1" />
+    <limit lower="0" upper="0.2" effort="0" velocity="0" />
   </joint>
-  <link name="pipette">
+  <link name="front_door_upper">
     <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/pipette.obj" scale="1 1 1" />
+        <mesh filename="meshes/door_upper.obj" />
       </geometry>
     </visual>
-    <collision name="pipette_proxy_0">
-      <origin xyz="0 0 -0.026" rpy="0 0 0" />
+    <collision>
+      <origin xyz="0 0 -0.102" />
       <geometry>
-        <box size="0.062 0.07 0.17" />
-      </geometry>
-    </collision>
-    <collision name="pipette_proxy_1">
-      <origin xyz="0 -0.036 -0.016" rpy="0 0 0" />
-      <geometry>
-        <box size="0.047 0.004 0.14" />
-      </geometry>
-    </collision>
-    <collision name="pipette_proxy_2">
-      <origin xyz="0 0 -0.123" rpy="0 0 0" />
-      <geometry>
-        <cylinder radius="0.019" length="0.036" />
-      </geometry>
-    </collision>
-    <collision name="pipette_proxy_3">
-      <origin xyz="0 0 -0.148" rpy="0 0 0" />
-      <geometry>
-        <cylinder radius="0.005" length="0.016" />
+        <box size="0.778 0.006 0.204" />
       </geometry>
     </collision>
   </link>
-  <joint name="pipette_joint" type="fixed">
-    <parent link="carriage_z" />
-    <child link="pipette" />
+  <joint name="front_door_lift_joint" type="revolute">
+    <parent link="asset_root" />
+    <child link="front_door_upper" />
+    <origin xyz="0 -0.333 0.761" rpy="0 0 0" />
+    <axis xyz="-1 0 0" />
+    <limit lower="0" upper="1.57" effort="0" velocity="0" />
+  </joint>
+  <link name="front_door_lower">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/door_lower.obj" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.232" />
+      <geometry>
+        <box size="0.778 0.006 0.468" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="front_door_fold_joint" type="revolute">
+    <parent link="front_door_upper" />
+    <child link="front_door_lower" />
+    <origin xyz="0 0 -0.204" rpy="0 0 0" />
+    <axis xyz="-1 0 0" />
+    <limit lower="0" upper="3.14" effort="0" velocity="0" />
+  </joint>
+  <link name="deck_base">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/deck_base.obj" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 -0.016 0.158" />
+      <geometry>
+        <box size="0.847 0.614 0.014" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="deck_base_joint" type="fixed">
+    <parent link="asset_root" />
+    <child link="deck_base" />
     <origin xyz="0 0 0" rpy="0 0 0" />
   </joint>
-  <link name="touchscreen">
+  <link name="slot_d1">
     <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/touchscreen.obj" scale="1 1 1" />
+        <mesh filename="meshes/deck_insert.obj" />
       </geometry>
     </visual>
-    <collision name="touchscreen_proxy_0">
-      <origin xyz="0 0 0" rpy="0 0 0" />
+    <collision>
+      <origin xyz="0 0 0.008" />
       <geometry>
-        <box size="0.196 0.032 0.11" />
-      </geometry>
-    </collision>
-    <collision name="touchscreen_proxy_1">
-      <origin xyz="0 -0.017 -0.003" rpy="0 0 0" />
-      <geometry>
-        <box size="0.1534 0.001 0.0899" />
+        <box size="0.162 0.106 0.028" />
       </geometry>
     </collision>
   </link>
-  <joint name="touchscreen_joint" type="fixed">
+  <joint name="slot_d1_joint" type="fixed">
     <parent link="asset_root" />
-    <child link="touchscreen" />
-    <origin xyz="0.139 -0.315 0.717" rpy="0 0 0" />
+    <child link="slot_d1" />
+    <origin xyz="-0.177 -0.206 0.169" rpy="0 0 0" />
   </joint>
-  <link name="status_light">
+  <link name="slot_d2">
     <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/status_light.obj" scale="1 1 1" />
+        <mesh filename="meshes/deck_insert.obj" />
       </geometry>
     </visual>
-    <collision name="status_light_proxy_0">
-      <origin xyz="-0.07 -0.302 0.755" rpy="0 0 0" />
+    <collision>
+      <origin xyz="0 0 0.008" />
       <geometry>
-        <box size="0.54 0.007 0.008" />
+        <box size="0.162 0.106 0.028" />
       </geometry>
     </collision>
   </link>
-  <joint name="status_light_joint" type="fixed">
+  <joint name="slot_d2_joint" type="fixed">
     <parent link="asset_root" />
-    <child link="status_light" />
-    <origin xyz="0 0 0" rpy="0 0 0" />
+    <child link="slot_d2" />
+    <origin xyz="-0.012999999999999984 -0.206 0.169" rpy="0 0 0" />
   </joint>
-  <link name="connections">
+  <link name="slot_d3">
     <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/connections.obj" scale="1 1 1" />
+        <mesh filename="meshes/deck_insert.obj" />
       </geometry>
     </visual>
-    <collision name="connections_proxy_0">
-      <origin xyz="-0.255 0.343 0.223" rpy="0 0 0" />
+    <collision>
+      <origin xyz="0 0 0.008" />
       <geometry>
-        <box size="0.14 0.003 0.075" />
-      </geometry>
-    </collision>
-    <collision name="connections_proxy_1">
-      <origin xyz="-0.287 0.345 0.224" rpy="0 0 0" />
-      <geometry>
-        <box size="0.027 0.001 0.022" />
-      </geometry>
-    </collision>
-    <collision name="connections_proxy_2">
-      <origin xyz="-0.249 0.345 0.23" rpy="0 0 0" />
-      <geometry>
-        <box size="0.014 0.001 0.007" />
-      </geometry>
-    </collision>
-    <collision name="connections_proxy_3">
-      <origin xyz="-0.222 0.345 0.23" rpy="0 0 0" />
-      <geometry>
-        <box size="0.014 0.001 0.007" />
+        <box size="0.162 0.106 0.028" />
       </geometry>
     </collision>
   </link>
-  <joint name="connections_joint" type="fixed">
+  <joint name="slot_d3_joint" type="fixed">
     <parent link="asset_root" />
-    <child link="connections" />
-    <origin xyz="0 0 0" rpy="0 0 0" />
+    <child link="slot_d3" />
+    <origin xyz="0.15100000000000002 -0.206 0.169" rpy="0 0 0" />
   </joint>
-  <link name="rear_power_switch">
+  <link name="slot_c1">
     <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/rear_power_switch.obj" scale="1 1 1" />
+        <mesh filename="meshes/deck_insert.obj" />
       </geometry>
     </visual>
-    <collision name="rear_power_switch_proxy_0">
-      <origin xyz="0 0 0" rpy="0 0 0" />
+    <collision>
+      <origin xyz="0 0 0.008" />
       <geometry>
-        <box size="0.013 0.002 0.02" />
+        <box size="0.162 0.106 0.028" />
       </geometry>
     </collision>
   </link>
-  <joint name="rear_power_rocker_joint" type="revolute">
+  <joint name="slot_c1_joint" type="fixed">
     <parent link="asset_root" />
-    <child link="rear_power_switch" />
-    <origin xyz="-0.311 0.3445 0.224" rpy="0 0 0" />
-    <axis xyz="1 0 0" />
-    <limit lower="-0.15" upper="0.15" effort="0" velocity="0" />
+    <child link="slot_c1" />
+    <origin xyz="-0.177 -0.09899999999999999 0.169" rpy="0 0 0" />
+  </joint>
+  <link name="slot_c2">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/deck_insert.obj" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.008" />
+      <geometry>
+        <box size="0.162 0.106 0.028" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="slot_c2_joint" type="fixed">
+    <parent link="asset_root" />
+    <child link="slot_c2" />
+    <origin xyz="-0.012999999999999984 -0.09899999999999999 0.169" rpy="0 0 0" />
+  </joint>
+  <link name="slot_c3">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/deck_insert.obj" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.008" />
+      <geometry>
+        <box size="0.162 0.106 0.028" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="slot_c3_joint" type="fixed">
+    <parent link="asset_root" />
+    <child link="slot_c3" />
+    <origin xyz="0.15100000000000002 -0.09899999999999999 0.169" rpy="0 0 0" />
+  </joint>
+  <link name="slot_b1">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/deck_insert.obj" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.008" />
+      <geometry>
+        <box size="0.162 0.106 0.028" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="slot_b1_joint" type="fixed">
+    <parent link="asset_root" />
+    <child link="slot_b1" />
+    <origin xyz="-0.177 0.008000000000000007 0.169" rpy="0 0 0" />
+  </joint>
+  <link name="slot_b2">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/deck_insert.obj" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.008" />
+      <geometry>
+        <box size="0.162 0.106 0.028" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="slot_b2_joint" type="fixed">
+    <parent link="asset_root" />
+    <child link="slot_b2" />
+    <origin xyz="-0.012999999999999984 0.008000000000000007 0.169" rpy="0 0 0" />
+  </joint>
+  <link name="slot_b3">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/deck_insert.obj" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.008" />
+      <geometry>
+        <box size="0.162 0.106 0.028" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="slot_b3_joint" type="fixed">
+    <parent link="asset_root" />
+    <child link="slot_b3" />
+    <origin xyz="0.15100000000000002 0.008000000000000007 0.169" rpy="0 0 0" />
+  </joint>
+  <link name="slot_a1">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/deck_insert.obj" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.008" />
+      <geometry>
+        <box size="0.162 0.106 0.028" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="slot_a1_joint" type="fixed">
+    <parent link="asset_root" />
+    <child link="slot_a1" />
+    <origin xyz="-0.177 0.11500000000000002 0.169" rpy="0 0 0" />
+  </joint>
+  <link name="slot_a2">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/deck_insert.obj" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.008" />
+      <geometry>
+        <box size="0.162 0.106 0.028" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="slot_a2_joint" type="fixed">
+    <parent link="asset_root" />
+    <child link="slot_a2" />
+    <origin xyz="-0.012999999999999984 0.11500000000000002 0.169" rpy="0 0 0" />
+  </joint>
+  <link name="slot_a3">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/deck_insert.obj" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.008" />
+      <geometry>
+        <box size="0.162 0.106 0.028" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="slot_a3_joint" type="fixed">
+    <parent link="asset_root" />
+    <child link="slot_a3" />
+    <origin xyz="0.15100000000000002 0.11500000000000002 0.169" rpy="0 0 0" />
+  </joint>
+  <link name="slot_d4">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/staging_insert.obj" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.0035" />
+      <geometry>
+        <box size="0.146 0.102 0.017" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="slot_d4_joint" type="fixed">
+    <parent link="asset_root" />
+    <child link="slot_d4" />
+    <origin xyz="0.332 -0.206 0.169" rpy="0 0 0" />
+  </joint>
+  <link name="slot_c4">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/staging_insert.obj" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.0035" />
+      <geometry>
+        <box size="0.146 0.102 0.017" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="slot_c4_joint" type="fixed">
+    <parent link="asset_root" />
+    <child link="slot_c4" />
+    <origin xyz="0.332 -0.09899999999999999 0.169" rpy="0 0 0" />
+  </joint>
+  <link name="slot_b4">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/staging_insert.obj" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.0035" />
+      <geometry>
+        <box size="0.146 0.102 0.017" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="slot_b4_joint" type="fixed">
+    <parent link="asset_root" />
+    <child link="slot_b4" />
+    <origin xyz="0.332 0.008000000000000007 0.169" rpy="0 0 0" />
+  </joint>
+  <link name="slot_a4">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/staging_insert.obj" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.0035" />
+      <geometry>
+        <box size="0.146 0.102 0.017" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="slot_a4_joint" type="fixed">
+    <parent link="asset_root" />
+    <child link="slot_a4" />
+    <origin xyz="0.332 0.11500000000000002 0.169" rpy="0 0 0" />
   </joint>
 </robot>

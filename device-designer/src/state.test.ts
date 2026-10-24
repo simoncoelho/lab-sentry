@@ -5,6 +5,7 @@ import {
   nativeValue,
   resetInstrument,
   setInstrumentPresent,
+  translatedPose,
   updateJoint,
   type JointSpec,
 } from "./state";
@@ -19,6 +20,24 @@ const joint: JointSpec = {
 };
 
 describe("independent instrument poses", () => {
+  it("maps scene translation into URDF axes without changing yaw", () => {
+    const pose = createWorkspace().tiny2.pose;
+    expect(translatedPose(pose, { x: 0.25, y: 0.6, z: -0.4 })).toEqual({
+      ...pose,
+      x: 0.25,
+      y: 0.4,
+      z: 0.6,
+      yaw: -90,
+    });
+    expect(translatedPose(pose, { x: 4, y: -1, z: -4 })).toEqual({
+      ...pose,
+      x: 3,
+      y: 3,
+      z: 0,
+      yaw: -90,
+    });
+    expect(translatedPose(pose, { x: NaN, y: 0, z: 0 })).toBe(pose);
+  });
   it("changes only the requested instrument and preserves placement", () => {
     const before = createWorkspace();
     const after = updateJoint(before, "ot2", joint, 0.12);
@@ -40,7 +59,7 @@ describe("independent instrument poses", () => {
   });
   it("resets only the selected instrument to valid joint and placement defaults", () => {
     const before = updateJoint(createWorkspace(), "ot2", joint, 0.12);
-    before.ot2.pose = { x: 2, y: 1, z: 0.2, yaw: 45 };
+    before.ot2.pose = { x: 2, y: 1, z: 0.2, roll: 15, pitch: -20, yaw: 45 };
     before.ot2.visible = false;
     const after = resetInstrument(before, "ot2", [joint]);
     expect(after.ot2).toEqual({

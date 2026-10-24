@@ -1,13 +1,18 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { TransformControls } from "three/addons/controls/TransformControls.js";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { MTLLoader } from "three/addons/loaders/MTLLoader.js";
+import { toCreasedNormals } from "three/addons/utils/BufferGeometryUtils.js";
 import URDFLoader, { type URDFRobot } from "urdf-loader";
+import { sceneOrientation, rotatedPose } from "./orientation";
 import {
   clamp,
   instruments,
   jointLabels,
+  translatedPose,
+  type Pose,
   type InstrumentId,
   type JointSpec,
   type Workspace,
@@ -19,6 +24,7 @@ export type ModelInfo = {
   dimensions: number[];
 };
 type Events = {
+  move: (id: InstrumentId, pose: Pose) => void;
   ready: (id: InstrumentId, info: ModelInfo) => void;
   error: (id: InstrumentId, message: string) => void;
   select: (id: InstrumentId) => void;
@@ -49,6 +55,10 @@ export class InstrumentScene {
   private renderer: THREE.WebGLRenderer;
   private camera = new THREE.PerspectiveCamera(38, 1, 0.001, 100);
   private controls: OrbitControls;
+  private transform: TransformControls;
+  private moveAnchor = new THREE.Object3D();
+  private placementEnabled = false;
+  private gizmoPointer = false;
   private entries = new Map<InstrumentId, Entry>();
   private grid: THREE.GridHelper;
   private observer: ResizeObserver;
@@ -102,9 +112,39 @@ export class InstrumentScene {
     this.controls.addEventListener("start", () => {
       this.goal = undefined;
     });
+    this.moveAnchor.rotation.x = -Math.PI / 2;
+    this.scene.add(this.moveAnchor);
+    this.transform = new TransformControls(
+      this.camera,
+      this.renderer.domElement,
+    );
+    this.transform.setMode("translate");
+    this.transform.setSpace("local");
+    this.transform.setSize(0.85);
+    this.scene.add(this.transform.getHelper());
+    this.transform.addEventListener("dragging-changed", (event) => {
+      this.controls.enabled = !event.value;
+      if (event.value) this.goal = undefined;
+    });
+    this.transform.addEventListener("axis-changed", () => {
+      this.controls.enabled =
+        !this.transform.dragging && this.transform.axis === null;
+    });
+    this.transform.addEventListener("objectChange", () => {
+      if (!this.workspace || !this.transform.dragging) return;
+      const state = this.workspace[this.selected];
+      if (!state.present || !state.visible) return;
+      const pose =
+        this.transform.mode === "rotate"
+          ? rotatedPose(state.pose, this.moveAnchor.quaternion)
+          : translatedPose(state.pose, this.moveAnchor.position);
+      this.moveAnchor.position.set(pose.x, pose.z, -pose.y);
+      this.events.move(this.selected, pose);
+    });
     this.renderer.domElement.addEventListener(
       "pointerdown",
       this.onPointerDown,
+      true,
     );
     this.renderer.domElement.addEventListener("pointerup", this.onPointerUp);
     this.renderer.domElement.addEventListener("dblclick", this.onDoubleClick);
@@ -151,26 +191,79 @@ export class InstrumentScene {
         const promise = (async () => {
           let object: THREE.Object3D;
           if (/\.stl$/i.test(path)) {
-            const geometry = await new STLLoader(manager).loadAsync(path);
+            const rawGeometry = await new STLLoader(manager).loadAsync(path);
+            // The normal utility hashes positions at 0.01-unit precision.
+            // Work in millimeters so a centimeter-scale URDF does not collapse
+            // thousands of vertices into the same hash bucket.
+            if (id === "tiny2") rawGeometry.scale(1000, 1000, 1000);
+            const geometry =
+              id === "tiny2"
+                ? toCreasedNormals(rawGeometry, Math.PI / 4)
+                : rawGeometry;
+            if (geometry !== rawGeometry) rawGeometry.dispose();
+            if (id === "tiny2") geometry.scale(0.001, 0.001, 0.001);
             const color = (material as THREE.MeshPhongMaterial).color;
+            // URDF supplies the colors; these finish hints distinguish the
+            // Tiny 2's optical glass, anodized surfaces, and rubber in preview.
+            const finishes: Record<
+              string,
+              THREE.MeshPhysicalMaterialParameters
+            > = {
+              shell: { metalness: 0.35, roughness: 0.4 },
+              metal: { metalness: 0.55, roughness: 0.34 },
+              lens_metal: { metalness: 0.65, roughness: 0.3 },
+              glass: {
+                metalness: 0.05,
+                roughness: 0.09,
+                clearcoat: 1,
+                clearcoatRoughness: 0.06,
+              },
+              rubber: { metalness: 0, roughness: 0.85 },
+              black: { metalness: 0.05, roughness: 0.4 },
+            };
             object = new THREE.Mesh(
               geometry,
-              new THREE.MeshStandardMaterial({
+              new THREE.MeshPhysicalMaterial({
                 color,
                 roughness: 0.57,
                 metalness: 0.15,
                 transparent: material.transparent,
                 opacity: material.opacity,
+                ...(id === "tiny2" ? finishes[material.name] : {}),
               }),
             );
           } else if (/\.obj$/i.test(path)) {
-            const mtlPath = new URL("materials.mtl", path).href;
+            const mtlPath = new URL(id === "flex" ? "cad_materials.mtl" : "materials.mtl", path).href;
             if (!materials.has(mtlPath))
               materials.set(mtlPath, new MTLLoader(manager).loadAsync(mtlPath));
             const creator = await materials.get(mtlPath)!;
             object = await new OBJLoader(manager)
               .setMaterials(creator)
               .loadAsync(path);
+            if (id === "flex") {
+              object.traverse((child) => {
+                if (!(child instanceof THREE.Mesh)) return;
+                const finish = (source: THREE.MeshPhongMaterial) => {
+                  const glass = source.transparent;
+                  return new THREE.MeshPhysicalMaterial({
+                    name: source.name,
+                    color: source.color,
+                    metalness: /aluminium|deck_surface/.test(source.name) ? 0.55 : 0.12,
+                    roughness: glass ? 0.18 : 0.48,
+                    transparent: glass,
+                    opacity: source.opacity,
+                    depthWrite: !glass,
+                    side: THREE.DoubleSide,
+                  });
+                };
+                child.material = Array.isArray(child.material)
+                  ? child.material.map(finish)
+                  : finish(child.material);
+                if (Array.isArray(child.material)
+                  ? child.material.some((material) => material.transparent)
+                  : child.material.transparent) child.castShadow = false;
+              });
+            }
           } else throw new Error(`Unsupported mesh: ${path.split("/").pop()}`);
           done(object);
           completed++;
@@ -263,12 +356,38 @@ export class InstrumentScene {
       entry.group.visible =
         state.present && state.visible && (!isolated || id === selected);
       entry.group.position.set(state.pose.x, state.pose.z, -state.pose.y);
-      entry.group.rotation.set(-Math.PI / 2, 0, 0);
-      entry.group.rotateZ(THREE.MathUtils.degToRad(state.pose.yaw));
+      entry.group.quaternion.copy(sceneOrientation(state.pose));
       if (entry.robot) entry.robot.setJointValues(state.joints);
       if (entry.footprint) entry.footprint.visible = id === selected;
       entry.label.classList.toggle("selected", id === selected);
     }
+    this.syncPlacementHandle();
+  }
+
+  setPlacementEnabled(
+    enabled: boolean,
+    mode: "translate" | "rotate" = "translate",
+  ) {
+    this.placementEnabled = enabled;
+    this.transform.setMode(mode);
+    this.syncPlacementHandle();
+  }
+
+  private syncPlacementHandle() {
+    const entry = this.entries.get(this.selected);
+    if (!this.placementEnabled || !entry?.robot || !entry.group.visible) {
+      this.transform.detach();
+      this.controls.enabled = true;
+      return;
+    }
+    if (!this.transform.dragging) {
+      this.moveAnchor.position.copy(entry.group.position);
+      if (this.transform.mode === "rotate")
+        this.moveAnchor.quaternion.copy(entry.group.quaternion);
+      else this.moveAnchor.rotation.set(-Math.PI / 2, 0, 0);
+    }
+    if (this.transform.object !== this.moveAnchor)
+      this.transform.attach(this.moveAnchor);
   }
 
   setGrid(visible: boolean) {
@@ -320,10 +439,16 @@ export class InstrumentScene {
   }
 
   private onPointerDown = (event: PointerEvent) => {
+    this.gizmoPointer = this.transform.axis !== null && !!this.transform.object;
+    if (this.gizmoPointer) {
+      this.controls.enabled = false;
+      this.goal = undefined;
+    }
     this.pointerStart = { x: event.clientX, y: event.clientY };
   };
   private onPointerUp = (event: PointerEvent) => {
     if (
+      this.gizmoPointer ||
       event.button !== 0 ||
       Math.hypot(
         event.clientX - this.pointerStart.x,
@@ -360,7 +485,7 @@ export class InstrumentScene {
       if (this.camera.position.distanceTo(this.goal.position) < 0.0001)
         this.goal = undefined;
     }
-    this.controls.update();
+    if (!this.transform.dragging) this.controls.update();
     for (const entry of this.entries.values()) {
       if (!entry.bounds || !entry.group.visible) {
         entry.label.hidden = true;
@@ -386,9 +511,13 @@ export class InstrumentScene {
     cancelAnimationFrame(this.frame);
     this.observer.disconnect();
     this.controls.dispose();
+    this.transform.detach();
+    this.scene.remove(this.transform.getHelper());
+    this.transform.dispose();
     this.renderer.domElement.removeEventListener(
       "pointerdown",
       this.onPointerDown,
+      true,
     );
     this.renderer.domElement.removeEventListener("pointerup", this.onPointerUp);
     this.renderer.domElement.removeEventListener(

@@ -15,6 +15,7 @@ import {
   Layers3,
   Move3D,
   RotateCcw,
+  Rotate3D,
   SlidersHorizontal,
   SquareDashed,
   Trash2,
@@ -168,6 +169,9 @@ export default function App() {
   const [workspace, setWorkspace] = useState(createWorkspace);
   const [loads, setLoads] = useState<Record<string, LoadState>>({});
   const [tab, setTab] = useState<"joints" | "placement">("joints");
+  const [placementMode, setPlacementMode] = useState<"translate" | "rotate">(
+    "translate",
+  );
   const [isolated, setIsolated] = useState(false);
   const [grid, setGrid] = useState(true);
   const [help, setHelp] = useState(false);
@@ -186,6 +190,11 @@ export default function App() {
   useEffect(() => {
     try {
       scene.current = new InstrumentScene(host.current!, {
+        move: (id, pose) =>
+          setWorkspace((previous) => ({
+            ...previous,
+            [id]: { ...previous[id], pose },
+          })),
         select: setSelected,
         progress: (id, progress) =>
           setLoads((previous) => ({
@@ -226,6 +235,9 @@ export default function App() {
   useEffect(() => {
     scene.current?.update(workspace, selected, isolated);
   }, [workspace, selected, isolated]);
+  useEffect(() => {
+    scene.current?.setPlacementEnabled(tab === "placement", placementMode);
+  }, [tab, placementMode]);
   useEffect(() => {
     if (isolated) scene.current?.focus(selected);
   }, [selected, isolated]);
@@ -569,6 +581,44 @@ export default function App() {
               <p>{instrument.description}</p>
               <div className="inspector-actions">
                 <button
+                  aria-pressed={
+                    tab === "placement" && placementMode === "translate"
+                  }
+                  disabled={!info || !state.visible}
+                  onClick={() => {
+                    setTab(
+                      tab === "placement" && placementMode === "translate"
+                        ? "joints"
+                        : "placement",
+                    );
+                    setPlacementMode("translate");
+                    if (tab !== "placement") scene.current?.focus(selected);
+                  }}
+                  title="Move this device using the scene handles"
+                >
+                  <Move3D size={14} />
+                  Move
+                </button>
+                <button
+                  aria-pressed={
+                    tab === "placement" && placementMode === "rotate"
+                  }
+                  disabled={!info || !state.visible}
+                  onClick={() => {
+                    setTab(
+                      tab === "placement" && placementMode === "rotate"
+                        ? "joints"
+                        : "placement",
+                    );
+                    setPlacementMode("rotate");
+                    if (tab !== "placement") scene.current?.focus(selected);
+                  }}
+                  title="Rotate this device using the scene rings"
+                >
+                  <Rotate3D size={14} />
+                  Rotate
+                </button>
+                <button
                   disabled={!info || !state.visible}
                   onClick={() => scene.current?.focus(selected)}
                   title="Focus selected instrument (F)"
@@ -665,56 +715,70 @@ export default function App() {
                   </div>
                 </>
               ) : (
-                <>
-                  <div className="section-caption">
-                    <span>WORLD POSITION</span>
-                    <span>URDF origin</span>
+                <div className={`placement-fields ${placementMode}`}>
+                  <div className="move-hint">
+                    <Move3D size={15} />
+                    <span>
+                      {placementMode === "rotate"
+                        ? `Drag the colored rings to rotate ${instrument.name} around its local axes. Position and joint settings stay unchanged.`
+                        : `Drag the colored arrows in the scene to move ${instrument.name}. Use the square handles to move along a plane.`}
+                    </span>
                   </div>
-                  {(["x", "y", "z"] as const).map((axis) => (
-                    <div className="position-row" key={`${selected}-${axis}`}>
-                      <label className={`axis-${axis}`}>
-                        {axis.toUpperCase()}
-                        <span>
-                          {axis === "z"
-                            ? "Elevation"
-                            : axis === "x"
-                              ? "Horizontal"
-                              : "Depth"}
-                        </span>
-                      </label>
-                      <Numeric
-                        label={`${axis.toUpperCase()} position`}
-                        unit="mm"
-                        value={state.pose[axis] * 1000}
-                        min={axis === "z" ? 0 : -3000}
-                        max={3000}
-                        onChange={(value) => updatePose(axis, value / 1000)}
-                      />
+                  <div className="translation-fields">
+                    <div className="section-caption">
+                      <span>WORLD POSITION</span>
+                      <span>URDF origin</span>
                     </div>
-                  ))}
-                  <div className="section-caption rotation-caption">
-                    <span>ORIENTATION</span>
-                    <span>Z axis</span>
+                    {(["x", "y", "z"] as const).map((axis) => (
+                      <div className="position-row" key={`${selected}-${axis}`}>
+                        <label className={`axis-${axis}`}>
+                          {axis.toUpperCase()}
+                          <span>
+                            {axis === "z"
+                              ? "Elevation"
+                              : axis === "x"
+                                ? "Horizontal"
+                                : "Depth"}
+                          </span>
+                        </label>
+                        <Numeric
+                          label={`${axis.toUpperCase()} position`}
+                          unit="mm"
+                          value={state.pose[axis] * 1000}
+                          min={axis === "z" ? 0 : -3000}
+                          max={3000}
+                          onChange={(value) => updatePose(axis, value / 1000)}
+                        />
+                      </div>
+                    ))}
                   </div>
-                  <div className="position-row">
-                    <label>
-                      R<span>Yaw</span>
-                    </label>
-                    <Numeric
-                      key={selected}
-                      label="Yaw rotation"
-                      unit="°"
-                      value={state.pose.yaw}
-                      min={-180}
-                      max={180}
-                      onChange={(value) => updatePose("yaw", value)}
-                    />
+                  <div className="rotation-fields">
+                    <div className="section-caption">
+                      <span>ORIENTATION</span>
+                      <span>Roll / pitch / yaw</span>
+                    </div>
+                    {(["roll", "pitch", "yaw"] as const).map((axis, index) => (
+                      <div className="position-row" key={`${selected}-${axis}`}>
+                        <label>
+                          {["X", "Y", "Z"][index]}
+                          <span>{axis[0].toUpperCase() + axis.slice(1)}</span>
+                        </label>
+                        <Numeric
+                          label={`${axis[0].toUpperCase() + axis.slice(1)} rotation`}
+                          unit="°"
+                          value={state.pose[axis] ?? 0}
+                          min={-180}
+                          max={180}
+                          onChange={(value) => updatePose(axis, value)}
+                        />
+                      </div>
+                    ))}
                   </div>
                   <p className="placement-hint">
                     Moves this instrument in the shared workspace. Joint
                     positions are preserved.
                   </p>
-                </>
+                </div>
               )}
             </div>
             <div className="inspector-footer">

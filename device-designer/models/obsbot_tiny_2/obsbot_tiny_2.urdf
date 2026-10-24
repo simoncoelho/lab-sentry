@@ -2,24 +2,33 @@
 <robot name="obsbot_tiny_2">
   <!-- Drawing-derived exterior reconstruction, not manufacturer CAD. SI units.
        Internal dimensions, mass distribution, torque limits and optical center
-       are estimates. Positive tilt looks up; vendor tilt signs are reversed. -->
+       are estimates. Positive tilt looks up; vendor tilt signs are reversed.
+       Reference: https://www.obsbot.com/obsbot-tiny-2-4k-webcam/specs
+       Appearance: official Tiny 2 product image and Parts Info drawings in
+       https://resource-cdn.obsbothk.com/download/obsbot-tiny-2/manual/OBSBOT%20Tiny%202%20User%20Manual_EN.pdf
+       Reviewed 2026-10-24. Bare camera: 47 mm wide x 44 mm deep x 62.02 mm high,
+       95.6 g. Fine lens detail and finish are visual approximations.
+       Collision meshes are conservative convex proxies, not contact CAD. -->
   <material name="shell">
-    <color rgba="0.21 0.22 0.23 1" />
+    <color rgba="0.045 0.049 0.054 1" />
   </material>
   <material name="metal">
-    <color rgba="0.29 0.3 0.31 1" />
+    <color rgba="0.065 0.070 0.077 1" />
   </material>
   <material name="rubber">
-    <color rgba="0.045 0.049 0.055 1" />
+    <color rgba="0.010 0.012 0.015 1" />
   </material>
   <material name="black">
-    <color rgba="0.013 0.018 0.023 1" />
+    <color rgba="0.006 0.008 0.011 1" />
   </material>
   <material name="red">
-    <color rgba="0.82 0.035 0.055 1" />
+    <color rgba="0.55 0.025 0.035 1" />
   </material>
   <material name="glass">
-    <color rgba="0.035 0.13 0.19 1" />
+    <color rgba="0.012 0.027 0.041 1" />
+  </material>
+  <material name="lens_metal">
+    <color rgba="0.018 0.021 0.025 1" />
   </material>
   <material name="silver">
     <color rgba="0.62 0.65 0.68 1" />
@@ -213,7 +222,7 @@
       <geometry>
         <mesh filename="meshes/visual/lens_annulus.stl" />
       </geometry>
-      <material name="metal" />
+      <material name="lens_metal" />
     </visual>
     <visual name="lens_barrel">
       <geometry>

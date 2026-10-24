@@ -7,7 +7,14 @@ export type JointSpec = {
   upper: number;
   initial: number;
 };
-export type Pose = { x: number; y: number; z: number; yaw: number };
+export type Pose = {
+  x: number;
+  y: number;
+  z: number;
+  roll: number;
+  pitch: number;
+  yaw: number;
+};
 export type InstrumentState = {
   present: boolean;
   visible: boolean;
@@ -32,10 +39,10 @@ export const instruments: {
     maker: "OPENTRONS",
     category: "Liquid handler",
     path: "opentrons_flex/opentrons_flex.urdf",
-    description: "Three-axis gantry · articulated power switch",
-    source: "https://huggingface.co/datasets/MBZUAI/ChemLab-Assets",
-    notice: "Community model · ChemLab Assets · CC BY-NC 4.0",
-    pose: { x: -0.55, y: 0, z: 0, yaw: 0 },
+    description: "Three-axis gantry · folding door · 8-channel pipette",
+    source: "https://docs.opentrons.com/flex/system-description/",
+    notice: "Supplied CAD conversion · photo-informed reconstruction",
+    pose: { x: -0.55, y: 0, z: 0, roll: 0, pitch: 0, yaw: 0 },
   },
   {
     id: "ot2",
@@ -46,7 +53,7 @@ export const instruments: {
     description: "Three-axis gantry · independent carriage motion",
     source: "https://github.com/EmilFox231007/Y2B-2023-OT2_Twin",
     notice: "Community model · Y2B OT2 Twin · no upstream license supplied",
-    pose: { x: 0.55, y: 0, z: 0, yaw: 0 },
+    pose: { x: 0.55, y: 0, z: 0, roll: 0, pitch: 0, yaw: 0 },
   },
   {
     id: "tiny2",
@@ -57,7 +64,7 @@ export const instruments: {
     description: "Two-axis gimbal · pan and tilt",
     source: "https://www.obsbot.com/obsbot-tiny-2-4k-webcam",
     notice: "Drawing-derived reconstruction · estimated internal geometry",
-    pose: { x: 0, y: -0.6, z: 0, yaw: -90 },
+    pose: { x: 0, y: -0.6, z: 0, roll: 0, pitch: 0, yaw: -90 },
   },
 ];
 export const jointLabels: Record<string, string> = {
@@ -65,6 +72,8 @@ export const jointLabels: Record<string, string> = {
   carriage_x_joint: "Carriage X",
   carriage_z_joint: "Carriage Z",
   rear_power_rocker_joint: "Power rocker",
+  front_door_lift_joint: "Door lift",
+  front_door_fold_joint: "Door fold",
   Slider_3: "Gantry X",
   Slider_4: "Carriage Y",
   Slider_5: "Toolhead Z",
@@ -81,6 +90,19 @@ export function createWorkspace(): Workspace {
 }
 export function clamp(value: number, lower: number, upper: number) {
   return Math.min(upper, Math.max(lower, value));
+}
+// Convert renderer Y-up translation into the workspace's URDF Z-up frame.
+export function translatedPose(
+  pose: Pose,
+  position: { x: number; y: number; z: number },
+): Pose {
+  if (![position.x, position.y, position.z].every(Number.isFinite)) return pose;
+  return {
+    ...pose,
+    x: clamp(position.x, -3, 3),
+    y: clamp(-position.z, -3, 3),
+    z: clamp(position.y, 0, 3),
+  };
 }
 export function setInstrumentPresent(
   workspace: Workspace,
