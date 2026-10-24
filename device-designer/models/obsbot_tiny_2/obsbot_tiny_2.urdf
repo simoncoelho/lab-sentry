@@ -1,0 +1,261 @@
+<?xml version='1.0' encoding='utf-8'?>
+<robot name="obsbot_tiny_2">
+  <!-- Drawing-derived exterior reconstruction, not manufacturer CAD. SI units.
+       Internal dimensions, mass distribution, torque limits and optical center
+       are estimates. Positive tilt looks up; vendor tilt signs are reversed. -->
+  <material name="shell">
+    <color rgba="0.21 0.22 0.23 1" />
+  </material>
+  <material name="metal">
+    <color rgba="0.29 0.3 0.31 1" />
+  </material>
+  <material name="rubber">
+    <color rgba="0.045 0.049 0.055 1" />
+  </material>
+  <material name="black">
+    <color rgba="0.013 0.018 0.023 1" />
+  </material>
+  <material name="red">
+    <color rgba="0.82 0.035 0.055 1" />
+  </material>
+  <material name="glass">
+    <color rgba="0.035 0.13 0.19 1" />
+  </material>
+  <material name="silver">
+    <color rgba="0.62 0.65 0.68 1" />
+  </material>
+  <material name="gold">
+    <color rgba="0.72 0.53 0.17 1" />
+  </material>
+  <material name="led">
+    <color rgba="0.07 0.68 0.42 1" />
+  </material>
+  <link name="obsbot_mount_link" />
+  <link name="obsbot_base_link">
+    <inertial>
+      <origin xyz="0 0 0.0122" rpy="0 0 0" />
+      <mass value="0.06" />
+      <inertia ixx="1.33062275347e-05" ixy="3.93617171087e-22" ixz="1.02682740284e-22" iyy="1.20424041056e-05" iyz="-5.47641281513e-22" izz="1.94020973787e-05" />
+    </inertial>
+    <visual name="microphone_right">
+      <geometry>
+        <mesh filename="meshes/visual/microphone_right.stl" />
+      </geometry>
+      <material name="black" />
+    </visual>
+    <visual name="microphone_left">
+      <geometry>
+        <mesh filename="meshes/visual/microphone_left.stl" />
+      </geometry>
+      <material name="black" />
+    </visual>
+    <visual name="usb_recess">
+      <geometry>
+        <mesh filename="meshes/visual/usb_recess.stl" />
+      </geometry>
+      <material name="black" />
+    </visual>
+    <visual name="usb_tongue">
+      <geometry>
+        <mesh filename="meshes/visual/usb_tongue.stl" />
+      </geometry>
+      <material name="rubber" />
+    </visual>
+    <visual name="base_lower">
+      <geometry>
+        <mesh filename="meshes/visual/base_lower.stl" />
+      </geometry>
+      <material name="rubber" />
+    </visual>
+    <visual name="base_housing">
+      <geometry>
+        <mesh filename="meshes/visual/base_housing.stl" />
+      </geometry>
+      <material name="shell" />
+    </visual>
+    <visual name="tripod_insert">
+      <geometry>
+        <mesh filename="meshes/visual/tripod_insert.stl" />
+      </geometry>
+      <material name="silver" />
+    </visual>
+    <visual name="accessory_contact_carrier">
+      <geometry>
+        <mesh filename="meshes/visual/accessory_contact_carrier.stl" />
+      </geometry>
+      <material name="black" />
+    </visual>
+    <visual name="accessory_contact_0">
+      <geometry>
+        <mesh filename="meshes/visual/accessory_contact_0.stl" />
+      </geometry>
+      <material name="gold" />
+    </visual>
+    <visual name="accessory_contact_1">
+      <geometry>
+        <mesh filename="meshes/visual/accessory_contact_1.stl" />
+      </geometry>
+      <material name="gold" />
+    </visual>
+    <visual name="accessory_contact_2">
+      <geometry>
+        <mesh filename="meshes/visual/accessory_contact_2.stl" />
+      </geometry>
+      <material name="gold" />
+    </visual>
+    <visual name="accessory_contact_3">
+      <geometry>
+        <mesh filename="meshes/visual/accessory_contact_3.stl" />
+      </geometry>
+      <material name="gold" />
+    </visual>
+    <visual name="accessory_contact_4">
+      <geometry>
+        <mesh filename="meshes/visual/accessory_contact_4.stl" />
+      </geometry>
+      <material name="gold" />
+    </visual>
+    <visual name="wordmark">
+      <geometry>
+        <mesh filename="meshes/visual/wordmark.stl" />
+      </geometry>
+      <material name="silver" />
+    </visual>
+    <collision name="base_envelope">
+      <geometry>
+        <mesh filename="meshes/collision/base_envelope.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="obsbot_pan_link">
+    <inertial>
+      <origin xyz="-7.11297466218e-08 0.00716506942194 0.0104937328875" rpy="0 0 0" />
+      <mass value="0.0156" />
+      <inertia ixx="3.65119477267e-06" ixy="-1.1644621985e-11" ixz="-8.31102017414e-12" iyy="2.80125791815e-06" iyz="-1.15090258696e-06" izz="2.74800329575e-06" />
+    </inertial>
+    <visual name="pan_table">
+      <geometry>
+        <mesh filename="meshes/visual/pan_table.stl" />
+      </geometry>
+      <material name="metal" />
+    </visual>
+    <visual name="indicator_window">
+      <geometry>
+        <mesh filename="meshes/visual/indicator_window.stl" />
+      </geometry>
+      <material name="black" />
+    </visual>
+    <visual name="status_light">
+      <geometry>
+        <mesh filename="meshes/visual/status_light.stl" />
+      </geometry>
+      <material name="led" />
+    </visual>
+    <visual name="cantilever_arm">
+      <geometry>
+        <mesh filename="meshes/visual/cantilever_arm.stl" />
+      </geometry>
+      <material name="metal" />
+    </visual>
+    <visual name="motor_end_cap">
+      <geometry>
+        <mesh filename="meshes/visual/motor_end_cap.stl" />
+      </geometry>
+      <material name="shell" />
+    </visual>
+    <visual name="tilt_spindle">
+      <geometry>
+        <mesh filename="meshes/visual/tilt_spindle.stl" />
+      </geometry>
+      <material name="rubber" />
+    </visual>
+    <collision name="pan_table">
+      <geometry>
+        <mesh filename="meshes/collision/pan_table.stl" />
+      </geometry>
+    </collision>
+    <collision name="arm_stem">
+      <geometry>
+        <mesh filename="meshes/collision/arm_stem.stl" />
+      </geometry>
+    </collision>
+    <collision name="tilt_motor">
+      <geometry>
+        <mesh filename="meshes/collision/tilt_motor.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="obsbot_camera_link">
+    <inertial>
+      <origin xyz="0 9.36948507647e-19 1.4639820432e-20" rpy="0 0 0" />
+      <mass value="0.02" />
+      <inertia ixx="2.21079473759e-06" ixy="-0" ixz="1.0979865324e-23" iyy="2.29935009243e-06" iyz="-1.60123035975e-23" izz="2.47893927399e-06" />
+    </inertial>
+    <visual name="camera_housing">
+      <geometry>
+        <mesh filename="meshes/visual/camera_housing.stl" />
+      </geometry>
+      <material name="shell" />
+    </visual>
+    <visual name="red_bezel">
+      <geometry>
+        <mesh filename="meshes/visual/red_bezel.stl" />
+      </geometry>
+      <material name="red" />
+    </visual>
+    <visual name="front_face">
+      <geometry>
+        <mesh filename="meshes/visual/front_face.stl" />
+      </geometry>
+      <material name="black" />
+    </visual>
+    <visual name="lens_annulus">
+      <geometry>
+        <mesh filename="meshes/visual/lens_annulus.stl" />
+      </geometry>
+      <material name="metal" />
+    </visual>
+    <visual name="lens_barrel">
+      <geometry>
+        <mesh filename="meshes/visual/lens_barrel.stl" />
+      </geometry>
+      <material name="black" />
+    </visual>
+    <visual name="lens_glass">
+      <geometry>
+        <mesh filename="meshes/visual/lens_glass.stl" />
+      </geometry>
+      <material name="glass" />
+    </visual>
+    <collision name="camera_envelope">
+      <geometry>
+        <mesh filename="meshes/collision/camera_envelope.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="obsbot_mount_joint" type="fixed">
+    <parent link="obsbot_mount_link" />
+    <child link="obsbot_base_link" />
+    <origin xyz="0 0 0" rpy="0 0 0" />
+  </joint>
+  <joint name="obsbot_pan_joint" type="revolute">
+    <parent link="obsbot_base_link" />
+    <child link="obsbot_pan_link" />
+    <origin xyz="0 0 0.0246" rpy="0 0 0" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.443460952792061" upper="2.443460952792061" effort="0.1" velocity="2.0943951023931953" />
+  </joint>
+  <joint name="obsbot_tilt_joint" type="revolute">
+    <parent link="obsbot_pan_link" />
+    <child link="obsbot_camera_link" />
+    <origin xyz="0 -0.0044 0.02462" rpy="0 0 0" />
+    <axis xyz="0 -1 0" />
+    <limit lower="-0.5235987755982988" upper="1.2217304763960306" effort="0.1" velocity="2.0943951023931953" />
+  </joint>
+  <link name="obsbot_camera_optical_frame" />
+  <joint name="obsbot_optical_joint" type="fixed">
+    <parent link="obsbot_camera_link" />
+    <child link="obsbot_camera_optical_frame" />
+    <origin xyz="0.0123 0 0" rpy="-1.5707963267948966 0 -1.5707963267948966" />
+  </joint>
+</robot>
