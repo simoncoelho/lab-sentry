@@ -41,3 +41,10 @@ Tiny 2's October 2026 refinement follows OBSBOT's official appearance and specif
 Select Flex or Tiny 2 and choose **Mount Tiny 2 on Flex**. Hover over the Flex to see a base-size target ring, then click a surface. The camera moves to the hit point and rotates so its underside is flush with that face; its pan/tilt settings are preserved. Drag to orbit while choosing a spot, or press Escape / Cancel to exit without moving it. Both models must be present and loaded; hidden models are shown when mounting starts.
 
 This places an independent camera pose, not a persistent attachment: subsequent Flex motion does not carry the camera along. The alignment uses the local face plane; it does not check the full base footprint for edge overhang or surrounding collisions.
+
+## Workspace phases
+
+1. **Workspace setup**: name the setup, arrange instruments, adjust joints, and mount the camera. **Save workspace** writes a versioned snapshot to browser local storage. **Save & continue** saves successfully before entering calibration. Unsaved edits disable the direct calibration tab. At least one loaded instrument is required to save, and Tiny 2 must be present to continue.
+2. **Camera calibration**: review the saved setup with placement and joint controls locked. Add a PNG/JPEG/WebP reference image (up to 20 MB) for the next stage. Reference images stay in memory for this session; no live camera connection or calibration solver is implemented yet. Editing and re-saving a changed setup clears its previous reference image.
+
+Reload restores the last explicitly saved setup, including camera pose, joint positions, device presence/visibility, grid, and acrylic visibility. Export/Open file provides portable `.workspace.json` snapshots. Browser saves are local to this origin and browser profile; a storage error leaves the current setup editable and does not advance the phase. The saved format is version 1 and uses the existing meter/degree pose conventions (joint values remain native URDF radians/meters).

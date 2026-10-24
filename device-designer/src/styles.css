@@ -1469,3 +1469,66 @@ svg {
 .surface-mount-control > button:disabled { opacity: .4; cursor: not-allowed; }
 .surface-mount-control p { margin: 8px 0 0; font-size: 11px; line-height: 1.6; color: #9aaac0; }
 .mount-banner { max-width: calc(100% - 40px); color: #d5e7ff; border-color: #56769b; }
+
+/* Phase navigation stays above the shared scene and its context panels. */
+.app-shell { grid-template-rows: 56px 68px minmax(0, 1fr) 30px; }
+.workflow-bar { grid-column: 1 / -1; grid-row: 2; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--border); background: #121822; }
+.workflow-bar nav, .workflow-save { display: flex; align-items: center; gap: 10px; }
+.workflow-bar nav > button { background: transparent; border-color: transparent; font-size: 11px; }
+.workflow-bar nav > button > span { color: #7588a4; font-size: 10px; }
+.workflow-bar nav > button[aria-current="step"] { color: #d9e9ff; background: #24334a; border-color: #425b80; }
+.workflow-save { font-size: 10px; }
+.saved-state { color: #95c5b0; }
+.draft-state { color: #b6a482; }
+.primary-action { background: #aac8f3; color: #121c2a; border-color: #aac8f3; font-weight: 600; }
+.primary-action:hover { background: #c2d9fa; color: #121c2a; }
+.workspace-name { display: flex; flex-direction: column; gap: 8px; font-size: 10px; color: var(--muted); }
+.workspace-name input { width: 100%; border: 1px solid #354156; border-radius: 4px; padding: 9px; color: #dce6f7; background: #171f2b; font-size: 13px; }
+.workspace-files { display: flex; gap: 6px; margin: 10px 0 14px; }
+.workspace-files > * { flex: 1; font-size: 10px; }
+.file-action { position: relative; display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; border: 1px solid #3a4b65; border-radius: 4px; cursor: pointer; background: #1b293b; color: #c2d8f9; }
+.file-action input { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
+.file-action:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.save-error { position: absolute; z-index: 50; top: 128px; left: 50%; transform: translateX(-50%); width: min(650px, 90vw); padding: 12px 15px; border: 1px solid #9e6265; background: #35262e; color: #f1c0c5; display: flex; align-items: center; gap: 12px; }
+.calibration-panel { overflow-y: auto; padding: 25px 20px; }
+.calibration-panel h2 { font-family: 'DM Sans', sans-serif; font-size: 25px; margin: 10px 0; }
+.calibration-panel p, .calibration-summary p { color: #91a0b6; line-height: 1.8; font-size: 11px; }
+.calibration-step { display: flex; align-items: flex-start; gap: 12px; padding: 20px 0; border-top: 1px solid var(--border); }
+.calibration-step:first-of-type { margin-top: 24px; }
+.calibration-step svg { color: #9bbded; margin-top: 2px; }
+.calibration-step strong { display: block; margin-bottom: 6px; font-weight: 500; }
+.reference-upload { width: 100%; }
+.calibration-panel figure { margin: 18px 0; }
+.calibration-panel figure img { width: 100%; max-height: 260px; object-fit: contain; background: #090e15; border-radius: 5px; }
+.calibration-panel figcaption { overflow-wrap: anywhere; font-size: 10px; color: #96a8c2; padding-top: 8px; }
+.calibration-next { margin-top: 24px; padding: 15px; background: #17202c; border-radius: 5px; }
+.calibration-next p { margin-top: 8px; }
+.calibration-summary { padding: 0 18px; }
+.calibration-summary > div { display: flex; align-items: center; gap: 12px; padding: 15px 0; border-bottom: 1px solid var(--border); }
+.calibration-summary small { display: block; color: var(--muted); margin-top: 5px; font-size: 9px; }
+.calibration-summary p { margin: 20px 0; }
+.phase-calibration .calibration-library { display: block; overflow-y: auto; }
+@media (min-width: 851px) {
+  .app-shell > .library, .app-shell > .viewport, .app-shell > .inspector { grid-row: 3; }
+  .app-shell > .statusbar { grid-row: 4; }
+}
+@media (min-width: 601px) and (max-width: 850px) {
+  .app-shell { grid-template-rows: 52px 100px 150px minmax(0, 1fr) 28px; }
+  .app-shell > .library { grid-row: 3; }
+  .app-shell > .viewport, .app-shell > .inspector { grid-row: 4; }
+  .app-shell > .statusbar { grid-row: 5; }
+  .library-intro { display: block; min-width: 170px; padding: 8px; }
+}
+@media (max-width: 1000px) {
+  .workflow-bar { flex-wrap: wrap; gap: 8px; padding: 10px 14px; }
+  .workflow-save { margin-left: auto; }
+  .app-shell { grid-template-rows: 56px 100px minmax(0, 1fr) 30px; }
+}
+@media (min-width: 601px) and (max-width: 850px) {
+  .app-shell { grid-template-rows: 52px 100px 150px minmax(0, 1fr) 28px; }
+}
+@media (max-width: 600px) {
+  .workflow-bar { flex-shrink: 0; }
+  .workflow-save { flex-wrap: wrap; margin: 0; }
+  .library-intro { display: block; min-width: 170px; }
+}

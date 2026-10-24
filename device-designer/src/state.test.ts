@@ -58,7 +58,7 @@ describe("independent instrument poses", () => {
     expect(updateJoint(before, "ot2", joint, Infinity)).toBe(before);
   });
   it("resets only the selected instrument to valid joint and placement defaults", () => {
-    const before = updateJoint(createWorkspace(), "ot2", joint, 0.12);
+    const before = updateJoint(setInstrumentPresent(createWorkspace(), "ot2", true), "ot2", joint, 0.12);
     before.ot2.pose = { x: 2, y: 1, z: 0.2, roll: 15, pitch: -20, yaw: 45 };
     before.ot2.visible = false;
     const after = resetInstrument(before, "ot2", [joint]);
@@ -72,7 +72,7 @@ describe("independent instrument poses", () => {
     expect(after.tiny2).toBe(before.tiny2);
   });
   it("removes and restores an instrument without changing other poses", () => {
-    const before = updateJoint(createWorkspace(), "ot2", joint, 0.12);
+    const before = updateJoint(setInstrumentPresent(createWorkspace(), "ot2", true), "ot2", joint, 0.12);
     const removed = setInstrumentPresent(before, "ot2", false);
     expect(removed.ot2.present).toBe(false);
     expect(removed.flex).toBe(before.flex);

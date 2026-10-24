@@ -22,6 +22,7 @@ import {
   Plus,
   X,
 } from "lucide-react";
+import { STORAGE_KEY, snapshot, parseWorkspace, matchesSaved, type SavedWorkspace } from "./workspace-file";
 import { InstrumentScene, type ModelInfo } from "./scene";
 import {
   clamp,
@@ -164,9 +165,23 @@ function InstrumentGlyph({ id }: { id: InstrumentId }) {
   );
 }
 
+function restoreSaved(): { saved: SavedWorkspace | null; error: string } {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return { saved: raw ? parseWorkspace(raw) : null, error: "" };
+  } catch { return { saved: null, error: "Could not restore the saved workspace. You can still set up and export a workspace." }; }
+}
+
 export default function App() {
+  const [restored] = useState(restoreSaved);
+  const [saved, setSaved] = useState<SavedWorkspace | null>(restored.saved);
+  const [workspaceName, setWorkspaceName] = useState(restored.saved?.name || "My lab workspace");
+  const [phase, setPhase] = useState<"setup" | "calibration">("setup");
+  const [saveError, setSaveError] = useState(restored.error);
+  const [reference, setReference] = useState<{ url: string; name: string } | null>(null);
+  const [imageError, setImageError] = useState("");
   const [selected, setSelected] = useState<InstrumentId>("flex");
-  const [workspace, setWorkspace] = useState(createWorkspace);
+  const [workspace, setWorkspace] = useState(() => restored.saved ? structuredClone(restored.saved.workspace) : createWorkspace());
   const [loads, setLoads] = useState<Record<string, LoadState>>({});
   const [tab, setTab] = useState<"joints" | "placement">("joints");
   const [placementMode, setPlacementMode] = useState<"translate" | "rotate">(
@@ -175,8 +190,8 @@ export default function App() {
   const [mounting, setMounting] = useState(false);
   const [mountNotice, setMountNotice] = useState("");
   const [isolated, setIsolated] = useState(false);
-  const [grid, setGrid] = useState(true);
-  const [acrylicVisible, setAcrylicVisible] = useState(true);
+  const [grid, setGrid] = useState(restored.saved?.view.grid ?? true);
+  const [acrylicVisible, setAcrylicVisible] = useState(restored.saved?.view.acrylicVisible ?? true);
   const [help, setHelp] = useState(false);
   const [sceneError, setSceneError] = useState("");
   const host = useRef<HTMLDivElement>(null);
@@ -221,7 +236,7 @@ export default function App() {
             [id]: {
               ...previous[id],
               joints: Object.fromEntries(
-                modelInfo.joints.map((j) => [j.name, j.initial]),
+                modelInfo.joints.map((j) => [j.name, clamp(previous[id].joints[j.name] ?? j.initial, j.lower, j.upper)]),
               ),
             },
           }));
@@ -246,9 +261,9 @@ export default function App() {
     scene.current?.update(workspace, selected, isolated);
   }, [workspace, selected, isolated]);
   useEffect(() => {
-    scene.current?.setPlacementEnabled(tab === "placement", placementMode);
+    scene.current?.setPlacementEnabled(phase === "setup" && tab === "placement", placementMode);
     if (tab === "placement") setMounting(false);
-  }, [tab, placementMode]);
+  }, [tab, placementMode, phase]);
   useEffect(() => {
     if (isolated) scene.current?.focus(selected);
   }, [selected, isolated]);
@@ -318,6 +333,29 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [selected, help, state.present]);
 
+  const clean = matchesSaved(saved, workspaceName, workspace, { acrylicVisible, grid });
+  const setupReady = activeInstruments.length > 0 && activeInstruments.every(i => loads[i.id]?.info) && !sceneError;
+  function saveSetup(continueToCalibration = false) {
+    const next = snapshot(workspaceName, workspace, { acrylicVisible, grid });
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      setSaved(next);
+      setSaveError("");
+      if (!clean) { setReference(null); setImageError(""); }
+      if (continueToCalibration) {
+        setWorkspace(structuredClone(next.workspace));
+        setMounting(false); setIsolated(false); setTab("joints"); setPhase("calibration");
+      }
+    } catch { setSaveError("Saving failed. Your setup is still here. Export it as a file, or free browser storage and try again."); }
+  }
+  function exportSetup() {
+    const next = snapshot(workspaceName, workspace, { acrylicVisible, grid });
+    const url = URL.createObjectURL(new Blob([JSON.stringify(next, null, 2)], { type: "application/json" }));
+    const link = document.createElement("a"); link.href = url;
+    link.download = `${next.name.replace(/[^a-z0-9_-]+/gi, "-")}.workspace.json`;
+    link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  useEffect(() => () => { if (reference) URL.revokeObjectURL(reference.url); }, [reference]);
   function updatePose(axis: keyof Pose, value: number) {
     setWorkspace((previous) => ({
       ...previous,
@@ -347,7 +385,7 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell phase-${phase}`}>
       <header className="topbar">
         <div className="brand">
           <span className="brand-icon">
@@ -372,7 +410,22 @@ export default function App() {
         </div>
       </header>
 
-      <aside className="library">
+      <section className="workflow-bar" aria-label="Workspace workflow">
+        <nav aria-label="Workflow phases">
+          <button aria-current={phase === "setup" ? "step" : undefined} onClick={() => setPhase("setup")}><span>01</span> Workspace setup {clean && <Check size={13} />}</button>
+          <ChevronRight size={14} />
+          <button aria-current={phase === "calibration" ? "step" : undefined} disabled={!clean || !setupReady || !workspace.tiny2.present} onClick={() => { setMounting(false); setIsolated(false); setTab("joints"); setPhase("calibration"); }}><span>02</span> Camera calibration</button>
+        </nav>
+        <div className="workflow-save">
+          <span className={clean ? "saved-state" : "draft-state"} role="status">{clean ? "Saved on this browser" : saved ? "Unsaved changes" : "Not saved yet"}</span>
+          {phase === "setup" ? <>
+            <button disabled={!setupReady} onClick={() => saveSetup()}>Save workspace</button>
+            <button className="primary-action" title={!workspace.tiny2.present ? "Add Tiny 2 to continue to camera calibration" : "Save this configuration and open camera calibration"} disabled={!setupReady || !workspace.tiny2.present} onClick={() => saveSetup(true)}>Save & continue <ChevronRight size={14} /></button>
+          </> : <button onClick={() => setPhase("setup")}>Edit workspace</button>}
+        </div>
+      </section>
+      {saveError && <div className="save-error" role="alert">{saveError}<button onClick={() => setSaveError("")} aria-label="Dismiss save error"><X size={13}/></button></div>}
+      {phase === "setup" ? <aside className="library">
         <div className="panel-heading">
           <span>INSTRUMENTS</span>
           <span className="count">
@@ -380,7 +433,20 @@ export default function App() {
           </span>
         </div>
         <div className="library-intro">
-          <h1>Your workspace</h1>
+          <label className="workspace-name">Workspace name<input aria-label="Workspace name" maxLength={80} value={workspaceName} onChange={e => setWorkspaceName(e.target.value)} /></label>
+          <div className="workspace-files">
+            <button onClick={exportSetup}>Export</button>
+            <label className="file-action">Open file<input type="file" accept=".json,application/json" aria-label="Open workspace file" onChange={async e => {
+              const file = e.target.files?.[0]; e.target.value = ""; if (!file) return;
+              try {
+                if (file.size > 1000000) throw new Error("Workspace file is too large.");
+                const next = parseWorkspace(await file.text());
+                setWorkspace(structuredClone(next.workspace)); setWorkspaceName(next.name); setAcrylicVisible(next.view.acrylicVisible); setGrid(next.view.grid);
+                setMounting(false); setIsolated(false); setSaveError("");
+                setSelected(instruments.find(i => next.workspace[i.id].present)?.id || "flex");
+              } catch { setSaveError("Could not open that workspace file. Your current setup has been kept."); }
+            }} /></label>
+          </div>
           <p>
             {activeInstruments.length}{" "}
             {activeInstruments.length === 1 ? "instrument" : "instruments"} in
@@ -467,7 +533,15 @@ export default function App() {
             <span className="unit-badge">1:1</span>
           </div>
         </div>
-      </aside>
+      </aside> : <aside className="library calibration-library">
+        <div className="panel-heading">SAVED WORKSPACE <Check size={14}/></div>
+        <div className="library-intro"><h1>{saved?.name}</h1><p>Setup complete. This configuration is the starting point for camera calibration.</p></div>
+        <div className="calibration-summary">
+          {activeInstruments.map(i => <div key={i.id}><InstrumentGlyph id={i.id}/><span>{i.name}<small>{i.id === "tiny2" ? "Camera to calibrate" : "Reference instrument"}</small></span><Check size={13}/></div>)}
+          <p>Device placement and joints are locked in this phase. Return to setup to change them.</p>
+          <button onClick={exportSetup}>Export saved setup</button>
+        </div>
+      </aside>}
 
       <main className="viewport">
         <div className="viewport-toolbar">
@@ -492,6 +566,7 @@ export default function App() {
               className={`icon-button ${grid ? "on" : ""}`}
               title="Toggle grid"
               aria-label="Toggle grid"
+              disabled={phase === "calibration"}
               aria-pressed={grid}
               onClick={() => setGrid(!grid)}
             >
@@ -590,14 +665,29 @@ export default function App() {
       <aside
         className="inspector"
         aria-label={
-          state.present ? `${instrument.name} controls` : "Instrument controls"
+          phase === "calibration" ? "Camera calibration" : state.present ? `${instrument.name} controls` : "Instrument controls"
         }
       >
         <div className="panel-heading">
-          <span>INSTRUMENT CONTROL</span>
+          <span>{phase === "setup" ? "INSTRUMENT CONTROL" : "CAMERA CALIBRATION"}</span>
           <SlidersHorizontal size={13} />
         </div>
-        {state.present ? (
+        {phase === "calibration" ? (
+          <div className="calibration-panel">
+            <span className="small-label">PHASE 02</span><h2>Camera calibration</h2>
+            <p>Start with a reference image from the Tiny 2 at its saved position.</p>
+            <div className="calibration-step"><Check size={16}/><div><strong>Workspace ready</strong><p>{saved?.name} is saved. Camera position and pan/tilt are included.</p></div></div>
+            <div className="calibration-step"><Camera size={16}/><div><strong>Camera reference</strong><p>Choose a still image of the workspace. It stays in this session.</p></div></div>
+            <label className="file-action reference-upload">{reference ? "Replace reference image" : "Add reference image"}<input aria-label="Add camera reference image" type="file" accept="image/png,image/jpeg,image/webp" onChange={e => {
+              const file = e.target.files?.[0]; e.target.value = ""; if (!file) return;
+              if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 20000000) { setImageError("Choose a PNG, JPEG or WebP image under 20 MB."); return; }
+              setImageError(""); setReference({url: URL.createObjectURL(file), name: file.name});
+            }} /></label>
+            {imageError && <p role="alert">{imageError}</p>}
+            {reference && <figure><img src={reference.url} alt="Camera calibration reference" onError={() => { setImageError("This image could not be decoded. Choose another image."); setReference(null); }}/><figcaption>{reference.name}</figcaption><button onClick={() => setReference(null)}>Remove reference image</button></figure>}
+            <div className="calibration-next"><span className="small-label">NEXT: VIEW ALIGNMENT</span><p>Reference-point matching and lens calibration will be added here. No calibration has been calculated yet.</p></div>
+          </div>
+        ) : state.present ? (
           <>
             <div className="inspector-title">
               <span className="small-label">{instrument.maker}</span>
@@ -899,7 +989,7 @@ export default function App() {
             ).length
           }{" "}
           visible<span className="status-divider">/</span>
-          {state.present ? (info?.joints.length ?? "–") : 0} active controls
+          {phase === "calibration" ? "Setup locked" : `${state.present ? (info?.joints.length ?? "–") : 0} active controls`}
         </span>
       </footer>
       {help && (
@@ -941,7 +1031,7 @@ export default function App() {
               positive yaw rotates around Z.
             </p>
             <p>
-              Poses last for this session. Reset affects only the selected
+              Save workspace keeps your setup in this browser; Export creates a portable file. Reset affects only the selected
               instrument. This viewer does not simulate collisions or connect to
               hardware.
             </p>

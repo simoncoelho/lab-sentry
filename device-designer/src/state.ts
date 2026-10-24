@@ -85,7 +85,7 @@ export function createWorkspace(): Workspace {
   return Object.fromEntries(
     instruments.map((i) => [
       i.id,
-      { present: true, visible: true, pose: { ...i.pose }, joints: {} },
+      { present: i.id === "flex", visible: true, pose: { ...i.pose }, joints: {} },
     ]),
   ) as Workspace;
 }
