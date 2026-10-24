@@ -23,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 import { STORAGE_KEY, snapshot, parseWorkspace, matchesSaved, type SavedWorkspace } from "./workspace-file";
+import { CameraComparison } from "./CameraComparison";
 import { InstrumentScene, type ModelInfo } from "./scene";
 import {
   clamp,
@@ -397,7 +398,7 @@ export default function App() {
         </div>
         <div className="top-actions">
           <span className="mode-tag">
-            <span /> LOCAL SIMULATION
+            <span /> {phase === "setup" ? "LOCAL SIMULATION" : "CAMERA COMPARISON"}
           </span>
           <button
             className="icon-button"
@@ -544,6 +545,7 @@ export default function App() {
       </aside>}
 
       <main className="viewport">
+        {phase === "calibration" && <CameraComparison scene={scene.current} />}
         <div className="viewport-toolbar">
           <div className="breadcrumb">
             <Box size={14} />
@@ -675,9 +677,10 @@ export default function App() {
         {phase === "calibration" ? (
           <div className="calibration-panel">
             <span className="small-label">PHASE 02</span><h2>Camera calibration</h2>
-            <p>Start with a reference image from the Tiny 2 at its saved position.</p>
+            <p>Compare the modeled optical view with the live OBSBOT feed.</p>
+            <button onClick={() => { setSelected("tiny2"); setTab("placement"); setPhase("setup"); }}>Edit camera placement</button>
             <div className="calibration-step"><Check size={16}/><div><strong>Workspace ready</strong><p>{saved?.name} is saved. Camera position and pan/tilt are included.</p></div></div>
-            <div className="calibration-step"><Camera size={16}/><div><strong>Camera reference</strong><p>Choose a still image of the workspace. It stays in this session.</p></div></div>
+            <div className="calibration-step"><Camera size={16}/><div><strong>Camera reference</strong><p>Optionally keep a still reference alongside the live comparison. It stays in this session.</p></div></div>
             <label className="file-action reference-upload">{reference ? "Replace reference image" : "Add reference image"}<input aria-label="Add camera reference image" type="file" accept="image/png,image/jpeg,image/webp" onChange={e => {
               const file = e.target.files?.[0]; e.target.value = ""; if (!file) return;
               if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 20000000) { setImageError("Choose a PNG, JPEG or WebP image under 20 MB."); return; }
@@ -685,7 +688,7 @@ export default function App() {
             }} /></label>
             {imageError && <p role="alert">{imageError}</p>}
             {reference && <figure><img src={reference.url} alt="Camera calibration reference" onError={() => { setImageError("This image could not be decoded. Choose another image."); setReference(null); }}/><figcaption>{reference.name}</figcaption><button onClick={() => setReference(null)}>Remove reference image</button></figure>}
-            <div className="calibration-next"><span className="small-label">NEXT: VIEW ALIGNMENT</span><p>Reference-point matching and lens calibration will be added here. No calibration has been calculated yet.</p></div>
+            <div className="calibration-next"><span className="small-label">NEXT: VIEW ALIGNMENT</span><p>The expected view uses saved mount position and pan/tilt. It does not move the physical camera. Match the hardware pose, then tune field of view. Calibration has not been solved yet.</p></div>
           </div>
         ) : state.present ? (
           <>
@@ -978,7 +981,7 @@ export default function App() {
           <span className={`status-dot ${ready === 3 ? "ready" : ""}`} />
           {ready === 3 ? "Workspace ready" : `${ready}/3 models loaded`}
         </span>
-        <span>Scene preview · no hardware connection</span>
+        <span>{phase === "setup" ? "Scene preview · no hardware connection" : "Camera comparison · no motion control"}</span>
         <span>
           {
             instruments.filter(

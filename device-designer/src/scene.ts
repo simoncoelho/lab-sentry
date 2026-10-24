@@ -6,6 +6,7 @@ import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { MTLLoader } from "three/addons/loaders/MTLLoader.js";
 import { toCreasedNormals } from "three/addons/utils/BufferGeometryUtils.js";
 import URDFLoader, { type URDFRobot } from "urdf-loader";
+import { opticalViewQuaternion, verticalFov } from "./camera-view";
 import { sceneOrientation, rotatedPose, surfaceMountedPose } from "./orientation";
 import {
   clamp,
@@ -54,6 +55,7 @@ function disposeObject(object: THREE.Object3D) {
 export class InstrumentScene {
   private scene = new THREE.Scene();
   private renderer: THREE.WebGLRenderer;
+  private expected?: { renderer: THREE.WebGLRenderer; host: HTMLDivElement; camera: THREE.PerspectiveCamera; horizontalFov: number; aspect: number };
   private camera = new THREE.PerspectiveCamera(38, 1, 0.001, 100);
   private controls: OrbitControls;
   private transform: TransformControls;
@@ -504,8 +506,61 @@ export class InstrumentScene {
     } else this.goal = { target: center, position };
   }
 
+  attachExpectedView(host: HTMLDivElement) {
+    this.detachExpectedView();
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputColorSpace = this.renderer.outputColorSpace;
+    renderer.toneMapping = this.renderer.toneMapping;
+    renderer.toneMappingExposure = this.renderer.toneMappingExposure;
+    renderer.setClearColor(0x101722);
+    renderer.domElement.setAttribute("aria-label", "Expected image from the modeled Tiny 2 optical frame");
+    host.appendChild(renderer.domElement);
+    this.expected = { renderer, host, camera: new THREE.PerspectiveCamera(45, 16 / 9, .001, 100), horizontalFov: 70, aspect: 16 / 9 };
+  }
+  setExpectedLens(horizontalFov: number, aspect: number) {
+    if (this.expected) { this.expected.horizontalFov = horizontalFov; this.expected.aspect = aspect; }
+  }
+  detachExpectedView() {
+    if (!this.expected) return;
+    this.expected.renderer.dispose(); this.expected.renderer.domElement.remove(); this.expected = undefined;
+  }
+  private renderExpectedView() {
+    const view = this.expected;
+    const optical = this.entries.get("tiny2")?.robot?.links.obsbot_camera_optical_frame;
+    if (!view || !optical || !this.workspace?.tiny2.present) return;
+    this.scene.updateMatrixWorld(true);
+    optical.getWorldPosition(view.camera.position);
+    view.camera.quaternion.copy(opticalViewQuaternion(optical.getWorldQuaternion(new THREE.Quaternion())));
+    view.camera.aspect = view.aspect;
+    view.camera.fov = verticalFov(view.horizontalFov, view.aspect);
+    view.camera.updateProjectionMatrix();
+    const width = Math.max(1, view.host.clientWidth), height = Math.max(1, view.host.clientHeight);
+    const size = view.renderer.getSize(new THREE.Vector2());
+    if (size.x !== width || size.y !== height) view.renderer.setSize(width, height);
+    // Scene visibility is an editing aid. The expected camera sees all present
+    // instruments and acrylic, with no gizmos, grid, footprint or self geometry.
+    const restore: [THREE.Object3D, boolean][] = [];
+    const visible = (object: THREE.Object3D, value: boolean) => { restore.push([object, object.visible]); object.visible = value; };
+    for (const [id, entry] of this.entries) {
+      visible(entry.group, id !== "tiny2" && !!this.workspace[id].present);
+      if (entry.footprint) visible(entry.footprint, false);
+    }
+    visible(this.grid, false); visible(this.mountMarker, false); visible(this.transform.getHelper(), false);
+    this.scene.traverse(object => {
+      if (object instanceof THREE.AxesHelper) visible(object, false);
+      if (object instanceof THREE.Mesh) {
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        if (materials.every(material => material.name === "polycarbonate")) visible(object, true);
+      }
+    });
+    try { view.renderer.render(this.scene, view.camera); }
+    finally { for (const [object, previous] of restore.reverse()) object.visible = previous; }
+  }
+
   private resize() {
     const { width, height } = this.host.getBoundingClientRect();
+    if (!width || !height) return;
     this.camera.aspect = width / Math.max(height, 1);
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
@@ -587,10 +642,12 @@ export class InstrumentScene {
       entry.label.style.top = `${((-point.y + 1) / 2) * this.host.clientHeight}px`;
     }
     this.renderer.render(this.scene, this.camera);
+    this.renderExpectedView();
   };
 
   dispose() {
     this.disposed = true;
+    this.detachExpectedView();
     cancelAnimationFrame(this.frame);
     this.observer.disconnect();
     this.controls.dispose();
