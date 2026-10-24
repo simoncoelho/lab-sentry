@@ -7,8 +7,10 @@ Original author/license not supplied; this is not a claim of manufacturer-certif
 Converted glTF Y-up to URDF Z-up, retaining source scale and neutral component positions.
 Geometry split into fixed chassis, windows, folding door, gantry and carriage.
 The missing lower-right window mirrors the supplied lower-left window.
-Complete deck surround, twelve recessed working inserts, four staging pads, clear locators, blue clips,
-coordinate markings and 8-channel pipette exterior are photo-informed reconstructions guided by IMG_6746-6752.
+Deck plates, recessed handles, one blue and three clear locators per slot, black waste bin,
+8-channel pipette and adjacent gripper reconstructed from user Photo 1-7, 2026-10-24.
+Optional staging pads from the source CAD are omitted to match this photographed configuration.
+Unmeasured dimensions, including gripper geometry and travel, are visual estimates.
 The incomplete source deck fixtures were removed to avoid overlapping or duplicate surfaces.
 Deck pitch 164 x 107 mm: https://github.com/Opentrons/opentrons/blob/edge/shared-data/deck/definitions/3/ot3_standard.json
 Envelope approximately 872.85 x 690.96 x 839.90 mm; source CAD tessellation retained.
@@ -148,9 +150,9 @@ Revised 2026-10-24. Previous ChemLab visual geometry is replaced, not relabeled 
       </geometry>
     </visual>
     <collision>
-      <origin xyz="0 0 -0.015" />
+      <origin xyz="0 0 0.02" />
       <geometry>
-        <box size="0.061 0.09 0.28" />
+        <box size="0.065 0.095 0.365" />
       </geometry>
     </collision>
   </link>
@@ -160,6 +162,80 @@ Revised 2026-10-24. Previous ChemLab visual geometry is replaced, not relabeled 
     <origin xyz="-0.038 -0.113 0.09" rpy="0 0 0" />
     <axis xyz="0 0 -1" />
     <limit lower="0" upper="0.2" effort="0" velocity="0" />
+  </joint>
+  <link name="gripper">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/gripper_body.obj" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.024" />
+      <geometry>
+        <box size="0.057 0.108 0.338" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="gripper_z_joint" type="prismatic">
+    <parent link="carriage_x" />
+    <child link="gripper" />
+    <origin xyz="0.105 -0.105 0.09" rpy="0 0 0" />
+    <axis xyz="0 0 -1" />
+    <limit lower="0" upper="0.14" effort="0" velocity="0" />
+  </joint>
+  <link name="gripper_front">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/gripper_front.obj" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 -0.045 -0.211" />
+      <geometry>
+        <box size="0.037 0.028 0.133" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="gripper_front_joint" type="fixed">
+    <parent link="gripper" />
+    <child link="gripper_front" />
+    <origin xyz="0 0 0" rpy="0 0 0" />
+  </joint>
+  <link name="gripper_rear">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/gripper_rear.obj" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0.045 -0.211" />
+      <geometry>
+        <box size="0.037 0.028 0.133" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="gripper_rear_joint" type="fixed">
+    <parent link="gripper" />
+    <child link="gripper_rear" />
+    <origin xyz="0 0 0" rpy="0 0 0" />
+  </joint>
+  <link name="waste_bin">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/waste_bin.obj" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.021" />
+      <geometry>
+        <box size="0.215 0.087 0.043" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="waste_bin_joint" type="fixed">
+    <parent link="asset_root" />
+    <child link="waste_bin" />
+    <origin xyz="0.18 0.115 0.17" rpy="0 0 0" />
   </joint>
   <link name="front_door_upper">
     <visual>
@@ -222,13 +298,13 @@ Revised 2026-10-24. Previous ChemLab visual geometry is replaced, not relabeled 
   <link name="slot_d1">
     <visual>
       <geometry>
-        <mesh filename="meshes/deck_insert.obj" />
+        <mesh filename="meshes/deck_left.obj" />
       </geometry>
     </visual>
     <collision>
-      <origin xyz="0 0 0.008" />
+      <origin xyz="-0.041 0 0.008" />
       <geometry>
-        <box size="0.162 0.106 0.028" />
+        <box size="0.244 0.106 0.028" />
       </geometry>
     </collision>
   </link>
@@ -258,13 +334,13 @@ Revised 2026-10-24. Previous ChemLab visual geometry is replaced, not relabeled 
   <link name="slot_d3">
     <visual>
       <geometry>
-        <mesh filename="meshes/deck_insert.obj" />
+        <mesh filename="meshes/deck_right.obj" />
       </geometry>
     </visual>
     <collision>
-      <origin xyz="0 0 0.008" />
+      <origin xyz="0.054 0 0.008" />
       <geometry>
-        <box size="0.162 0.106 0.028" />
+        <box size="0.27 0.106 0.028" />
       </geometry>
     </collision>
   </link>
@@ -276,13 +352,13 @@ Revised 2026-10-24. Previous ChemLab visual geometry is replaced, not relabeled 
   <link name="slot_c1">
     <visual>
       <geometry>
-        <mesh filename="meshes/deck_insert.obj" />
+        <mesh filename="meshes/deck_left.obj" />
       </geometry>
     </visual>
     <collision>
-      <origin xyz="0 0 0.008" />
+      <origin xyz="-0.041 0 0.008" />
       <geometry>
-        <box size="0.162 0.106 0.028" />
+        <box size="0.244 0.106 0.028" />
       </geometry>
     </collision>
   </link>
@@ -312,13 +388,13 @@ Revised 2026-10-24. Previous ChemLab visual geometry is replaced, not relabeled 
   <link name="slot_c3">
     <visual>
       <geometry>
-        <mesh filename="meshes/deck_insert.obj" />
+        <mesh filename="meshes/deck_right.obj" />
       </geometry>
     </visual>
     <collision>
-      <origin xyz="0 0 0.008" />
+      <origin xyz="0.054 0 0.008" />
       <geometry>
-        <box size="0.162 0.106 0.028" />
+        <box size="0.27 0.106 0.028" />
       </geometry>
     </collision>
   </link>
@@ -330,13 +406,13 @@ Revised 2026-10-24. Previous ChemLab visual geometry is replaced, not relabeled 
   <link name="slot_b1">
     <visual>
       <geometry>
-        <mesh filename="meshes/deck_insert.obj" />
+        <mesh filename="meshes/deck_left.obj" />
       </geometry>
     </visual>
     <collision>
-      <origin xyz="0 0 0.008" />
+      <origin xyz="-0.041 0 0.008" />
       <geometry>
-        <box size="0.162 0.106 0.028" />
+        <box size="0.244 0.106 0.028" />
       </geometry>
     </collision>
   </link>
@@ -366,13 +442,13 @@ Revised 2026-10-24. Previous ChemLab visual geometry is replaced, not relabeled 
   <link name="slot_b3">
     <visual>
       <geometry>
-        <mesh filename="meshes/deck_insert.obj" />
+        <mesh filename="meshes/deck_right.obj" />
       </geometry>
     </visual>
     <collision>
-      <origin xyz="0 0 0.008" />
+      <origin xyz="0.054 0 0.008" />
       <geometry>
-        <box size="0.162 0.106 0.028" />
+        <box size="0.27 0.106 0.028" />
       </geometry>
     </collision>
   </link>
@@ -384,13 +460,13 @@ Revised 2026-10-24. Previous ChemLab visual geometry is replaced, not relabeled 
   <link name="slot_a1">
     <visual>
       <geometry>
-        <mesh filename="meshes/deck_insert.obj" />
+        <mesh filename="meshes/deck_left.obj" />
       </geometry>
     </visual>
     <collision>
-      <origin xyz="0 0 0.008" />
+      <origin xyz="-0.041 0 0.008" />
       <geometry>
-        <box size="0.162 0.106 0.028" />
+        <box size="0.244 0.106 0.028" />
       </geometry>
     </collision>
   </link>
@@ -420,13 +496,13 @@ Revised 2026-10-24. Previous ChemLab visual geometry is replaced, not relabeled 
   <link name="slot_a3">
     <visual>
       <geometry>
-        <mesh filename="meshes/deck_insert.obj" />
+        <mesh filename="meshes/deck_right.obj" />
       </geometry>
     </visual>
     <collision>
-      <origin xyz="0 0 0.008" />
+      <origin xyz="0.054 0 0.008" />
       <geometry>
-        <box size="0.162 0.106 0.028" />
+        <box size="0.27 0.106 0.028" />
       </geometry>
     </collision>
   </link>
@@ -434,77 +510,5 @@ Revised 2026-10-24. Previous ChemLab visual geometry is replaced, not relabeled 
     <parent link="asset_root" />
     <child link="slot_a3" />
     <origin xyz="0.15100000000000002 0.11500000000000002 0.169" rpy="0 0 0" />
-  </joint>
-  <link name="slot_d4">
-    <visual>
-      <geometry>
-        <mesh filename="meshes/staging_insert.obj" />
-      </geometry>
-    </visual>
-    <collision>
-      <origin xyz="0 0 0.0035" />
-      <geometry>
-        <box size="0.146 0.102 0.017" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="slot_d4_joint" type="fixed">
-    <parent link="asset_root" />
-    <child link="slot_d4" />
-    <origin xyz="0.332 -0.206 0.169" rpy="0 0 0" />
-  </joint>
-  <link name="slot_c4">
-    <visual>
-      <geometry>
-        <mesh filename="meshes/staging_insert.obj" />
-      </geometry>
-    </visual>
-    <collision>
-      <origin xyz="0 0 0.0035" />
-      <geometry>
-        <box size="0.146 0.102 0.017" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="slot_c4_joint" type="fixed">
-    <parent link="asset_root" />
-    <child link="slot_c4" />
-    <origin xyz="0.332 -0.09899999999999999 0.169" rpy="0 0 0" />
-  </joint>
-  <link name="slot_b4">
-    <visual>
-      <geometry>
-        <mesh filename="meshes/staging_insert.obj" />
-      </geometry>
-    </visual>
-    <collision>
-      <origin xyz="0 0 0.0035" />
-      <geometry>
-        <box size="0.146 0.102 0.017" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="slot_b4_joint" type="fixed">
-    <parent link="asset_root" />
-    <child link="slot_b4" />
-    <origin xyz="0.332 0.008000000000000007 0.169" rpy="0 0 0" />
-  </joint>
-  <link name="slot_a4">
-    <visual>
-      <geometry>
-        <mesh filename="meshes/staging_insert.obj" />
-      </geometry>
-    </visual>
-    <collision>
-      <origin xyz="0 0 0.0035" />
-      <geometry>
-        <box size="0.146 0.102 0.017" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="slot_a4_joint" type="fixed">
-    <parent link="asset_root" />
-    <child link="slot_a4" />
-    <origin xyz="0.332 0.11500000000000002 0.169" rpy="0 0 0" />
   </joint>
 </robot>

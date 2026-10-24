@@ -249,7 +249,7 @@ export class InstrumentScene {
                     name: source.name,
                     color: source.color,
                     metalness: /aluminium|deck_surface/.test(source.name) ? 0.55 : 0.12,
-                    roughness: glass ? 0.18 : 0.48,
+                    roughness: glass ? 0.12 : source.name === "waste_black" ? 0.24 : 0.48,
                     transparent: glass,
                     opacity: source.opacity,
                     depthWrite: !glass,
