@@ -1462,3 +1462,10 @@ svg {
 .placement-fields .placement-hint {
   order: 3;
 }
+
+.surface-mount-control { padding: 0 20px 16px; border-bottom: 1px solid var(--border, #29313e); }
+.surface-mount-control > button { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 10px 12px; border: 1px solid #435875; border-radius: 5px; background: #233247; color: #d5e7ff; font: inherit; font-size: 12px; cursor: pointer; }
+.surface-mount-control > button[aria-pressed="true"] { background: #344d6e; border-color: #8ec5ff; }
+.surface-mount-control > button:disabled { opacity: .4; cursor: not-allowed; }
+.surface-mount-control p { margin: 8px 0 0; font-size: 11px; line-height: 1.6; color: #9aaac0; }
+.mount-banner { max-width: calc(100% - 40px); color: #d5e7ff; border-color: #56769b; }

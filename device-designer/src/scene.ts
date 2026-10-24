@@ -6,7 +6,7 @@ import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { MTLLoader } from "three/addons/loaders/MTLLoader.js";
 import { toCreasedNormals } from "three/addons/utils/BufferGeometryUtils.js";
 import URDFLoader, { type URDFRobot } from "urdf-loader";
-import { sceneOrientation, rotatedPose } from "./orientation";
+import { sceneOrientation, rotatedPose, surfaceMountedPose } from "./orientation";
 import {
   clamp,
   instruments,
@@ -24,6 +24,7 @@ export type ModelInfo = {
   dimensions: number[];
 };
 type Events = {
+  mounted: (pose: Pose) => void;
   move: (id: InstrumentId, pose: Pose) => void;
   ready: (id: InstrumentId, info: ModelInfo) => void;
   error: (id: InstrumentId, message: string) => void;
@@ -58,6 +59,12 @@ export class InstrumentScene {
   private transform: TransformControls;
   private moveAnchor = new THREE.Object3D();
   private placementEnabled = false;
+  private surfaceMount = false;
+  private acrylicVisible = true;
+  private mountMarker = new THREE.Mesh(
+    new THREE.RingGeometry(0.019, 0.0235, 48),
+    new THREE.MeshBasicMaterial({ color: 0x8ec5ff, side: THREE.DoubleSide, depthTest: false, transparent: true, opacity: 0.9 }),
+  );
   private gizmoPointer = false;
   private entries = new Map<InstrumentId, Entry>();
   private grid: THREE.GridHelper;
@@ -97,6 +104,11 @@ export class InstrumentScene {
     (this.grid.material as THREE.Material).transparent = true;
     (this.grid.material as THREE.Material).opacity = 0.45;
     this.scene.add(this.grid);
+    this.mountMarker.visible = false;
+    this.mountMarker.renderOrder = 100;
+    this.scene.add(this.mountMarker);
+    this.renderer.domElement.addEventListener("pointermove", this.onMountHover);
+    this.renderer.domElement.addEventListener("pointerleave", this.onMountLeave);
     const axes = new THREE.AxesHelper(0.2);
     axes.rotation.x = -Math.PI / 2;
     axes.position.set(-1.25, 0.001, 0.7);
@@ -305,6 +317,7 @@ export class InstrumentScene {
       for (const joint of joints)
         robot.setJointValue(joint.name, joint.initial);
       entry.robot = robot;
+      if (id === "flex") this.setAcrylicVisible(this.acrylicVisible);
       // Bounds in the native robot frame are also used for anchored labels.
       entry.bounds = new THREE.Box3().setFromObject(robot);
       entry.group.add(robot);
@@ -375,7 +388,7 @@ export class InstrumentScene {
 
   private syncPlacementHandle() {
     const entry = this.entries.get(this.selected);
-    if (!this.placementEnabled || !entry?.robot || !entry.group.visible) {
+    if (this.surfaceMount || !this.placementEnabled || !entry?.robot || !entry.group.visible) {
       this.transform.detach();
       this.controls.enabled = true;
       return;
@@ -389,6 +402,66 @@ export class InstrumentScene {
     if (this.transform.object !== this.moveAnchor)
       this.transform.attach(this.moveAnchor);
   }
+
+  setSurfaceMount(enabled: boolean) {
+    this.surfaceMount = enabled;
+    this.mountMarker.visible = false;
+    this.renderer.domElement.style.cursor = enabled ? "crosshair" : "";
+    this.syncPlacementHandle();
+  }
+
+  setAcrylicVisible(visible: boolean) {
+    this.acrylicVisible = visible;
+    this.mountMarker.visible = false;
+    this.entries.get("flex")?.robot?.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      if (materials.every(material => material.name === "polycarbonate")) {
+        object.visible = visible;
+      }
+    });
+  }
+
+  private isVisibleHit(hit: THREE.Intersection) {
+    let object: THREE.Object3D | null = hit.object;
+    while (object) {
+      if (!object.visible) return false;
+      object = object.parent;
+    }
+    return true;
+  }
+
+  private mountHit(event: PointerEvent) {
+    const flex = this.entries.get("flex");
+    if (!flex?.robot || !flex.group.visible) return;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(new THREE.Vector2(
+      (event.clientX - rect.left) / rect.width * 2 - 1,
+      -(event.clientY - rect.top) / rect.height * 2 + 1,
+    ), this.camera);
+    flex.group.updateWorldMatrix(true, true);
+    // Target only Flex visual meshes: grid, labels, and the Tiny 2 never intercept.
+    const hit = ray.intersectObject(flex.robot, true).find(hit => this.isVisibleHit(hit));
+    if (!hit?.face) return;
+    const normal = hit.face.normal.clone().applyNormalMatrix(
+      new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld),
+    ).normalize();
+    // Double-sided panels mount on the side the user clicked.
+    if (normal.dot(ray.ray.direction) > 0) normal.negate();
+    return { point: hit.point, normal };
+  }
+
+  private onMountLeave = () => { this.mountMarker.visible = false; };
+  private onMountHover = (event: PointerEvent) => {
+    if (!this.surfaceMount) return;
+    const hit = this.mountHit(event);
+    this.mountMarker.visible = !!hit;
+    if (hit) {
+      this.mountMarker.position.copy(hit.point).addScaledVector(hit.normal, 0.0002);
+      this.mountMarker.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), hit.normal);
+    }
+  };
 
   setGrid(visible: boolean) {
     this.grid.visible = visible;
@@ -456,6 +529,16 @@ export class InstrumentScene {
       ) > 4
     )
       return;
+    if (this.surfaceMount) {
+      const hit = this.mountHit(event);
+      const tiny = this.entries.get("tiny2");
+      if (hit && tiny?.bounds && this.workspace?.tiny2.present) {
+        const pose = surfaceMountedPose(this.workspace.tiny2.pose, hit.point, hit.normal, tiny.bounds.min.z);
+        this.setSurfaceMount(false);
+        this.events.mounted(pose);
+      }
+      return;
+    }
     const rect = this.renderer.domElement.getBoundingClientRect();
     const pointer = new THREE.Vector2(
       ((event.clientX - rect.left) / rect.width) * 2 - 1,
@@ -466,7 +549,7 @@ export class InstrumentScene {
     const candidates = [...this.entries.values()]
       .filter((e) => e.group.visible && e.robot)
       .map((e) => e.robot!);
-    const hit = ray.intersectObjects(candidates, true)[0];
+    const hit = ray.intersectObjects(candidates, true).find(hit => this.isVisibleHit(hit));
     if (hit) {
       let object: THREE.Object3D | null = hit.object;
       while (object && !instruments.some((i) => i.id === object!.name))
@@ -474,7 +557,7 @@ export class InstrumentScene {
       if (object) this.events.select(object.name as InstrumentId);
     }
   };
-  private onDoubleClick = () => this.focus(this.selected);
+  private onDoubleClick = () => { if (!this.surfaceMount) this.focus(this.selected); };
 
   private animate = () => {
     if (this.disposed) return;
@@ -511,6 +594,8 @@ export class InstrumentScene {
     cancelAnimationFrame(this.frame);
     this.observer.disconnect();
     this.controls.dispose();
+    this.renderer.domElement.removeEventListener("pointermove", this.onMountHover);
+    this.renderer.domElement.removeEventListener("pointerleave", this.onMountLeave);
     this.transform.detach();
     this.scene.remove(this.transform.getHelper());
     this.transform.dispose();

@@ -172,8 +172,11 @@ export default function App() {
   const [placementMode, setPlacementMode] = useState<"translate" | "rotate">(
     "translate",
   );
+  const [mounting, setMounting] = useState(false);
+  const [mountNotice, setMountNotice] = useState("");
   const [isolated, setIsolated] = useState(false);
   const [grid, setGrid] = useState(true);
+  const [acrylicVisible, setAcrylicVisible] = useState(true);
   const [help, setHelp] = useState(false);
   const [sceneError, setSceneError] = useState("");
   const host = useRef<HTMLDivElement>(null);
@@ -195,7 +198,14 @@ export default function App() {
             ...previous,
             [id]: { ...previous[id], pose },
           })),
-        select: setSelected,
+        mounted: (pose) => {
+          setWorkspace(previous => ({ ...previous, tiny2: { ...previous.tiny2, pose, visible: true } }));
+          setMounting(false);
+          setMountNotice("Tiny 2 placed flush on the Flex surface.");
+          setSelected("tiny2");
+          setTab("joints");
+        },
+        select: (id) => { setSelected(id); setMounting(false); },
         progress: (id, progress) =>
           setLoads((previous) => ({
             ...previous,
@@ -237,13 +247,24 @@ export default function App() {
   }, [workspace, selected, isolated]);
   useEffect(() => {
     scene.current?.setPlacementEnabled(tab === "placement", placementMode);
+    if (tab === "placement") setMounting(false);
   }, [tab, placementMode]);
   useEffect(() => {
     if (isolated) scene.current?.focus(selected);
   }, [selected, isolated]);
   useEffect(() => {
+    scene.current?.setSurfaceMount(mounting);
+    if (mounting) scene.current?.focus("flex");
+  }, [mounting]);
+  useEffect(() => {
+    if (!workspace.flex.present || !workspace.flex.visible || !workspace.tiny2.present || !workspace.tiny2.visible || isolated) setMounting(false);
+  }, [workspace, isolated]);
+  useEffect(() => {
     scene.current?.setGrid(grid);
   }, [grid]);
+  useEffect(() => {
+    scene.current?.setAcrylicVisible(acrylicVisible);
+  }, [acrylicVisible]);
   useEffect(() => {
     if (ready === instruments.length) scene.current?.focus();
   }, [ready]);
@@ -291,7 +312,7 @@ export default function App() {
         e.preventDefault();
         scene.current?.focus();
       }
-      if (e.key === "Escape") setHelp(false);
+      if (e.key === "Escape") { setHelp(false); setMounting(false); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -376,7 +397,7 @@ export default function App() {
                 className="instrument-select"
                 aria-pressed={selected === item.id}
                 aria-label={`Select ${item.name}`}
-                onClick={() => setSelected(item.id)}
+                onClick={() => { setSelected(item.id); setMounting(false); }}
               >
                 <div className="instrument-card-top">
                   <span className="instrument-index">0{index + 1}</span>
@@ -504,6 +525,12 @@ export default function App() {
             Top
           </button>
         </div>
+        {mounting && (
+          <div className="isolation-banner mount-banner" role="status">
+            <Crosshair size={15} /> Click a Flex surface to mount Tiny 2
+            <button onClick={() => setMounting(false)} aria-label="Cancel surface mounting"><X size={14} /></button>
+          </div>
+        )}
         {isolated && (
           <div className="isolation-banner">
             <Focus size={13} /> Isolating {instrument.name}
@@ -637,6 +664,35 @@ export default function App() {
                 </button>
               </div>
             </div>
+            {selected === "flex" && (
+              <div className="surface-mount-control">
+                <button
+                  disabled={!info}
+                  aria-pressed={!acrylicVisible}
+                  onClick={() => setAcrylicVisible(visible => !visible)}
+                >
+                  {acrylicVisible ? <EyeOff size={15} /> : <Eye size={15} />}
+                  {acrylicVisible ? "Hide acrylic panels" : "Show acrylic panels"}
+                </button>
+              </div>
+            )}
+            {(selected === "flex" || selected === "tiny2") && (
+              <div className="surface-mount-control">
+                <button aria-pressed={mounting}
+                  disabled={!loads.flex?.info || !loads.tiny2?.info || !workspace.flex.present || !workspace.tiny2.present}
+                  onClick={() => {
+                    if (mounting) { setMounting(false); return; }
+                    setIsolated(false);
+                    setTab("joints");
+                    setMountNotice("");
+                    setWorkspace(previous => ({ ...previous, flex: { ...previous.flex, visible: true }, tiny2: { ...previous.tiny2, visible: true } }));
+                    setMounting(true);
+                  }}>
+                  <Crosshair size={15} /> {mounting ? "Cancel mounting" : "Mount Tiny 2 on Flex"}
+                </button>
+                <p role="status">{mounting ? "Hover to preview the base. Click to place; Esc cancels. Drag to orbit." : mountNotice || "Choose a surface; the camera's base aligns flush. Both devices stay independently editable."}</p>
+              </div>
+            )}
             <div
               className="tabs"
               role="tablist"
