@@ -2093,3 +2093,54 @@ svg {
 .camera-comparison .comparison-camera-controls .lens-control { order: 2; }
 .camera-comparison .camera-reference-disclosure { order: 3; }
 .camera-comparison .camera-connect .camera-guidance { align-self: flex-end; }
+
+/* Workspace setup: compact devices, quiet canvas, focused inspector. */
+@media(min-width:851px) { .phase-setup { grid-template-columns: 200px minmax(280px,1fr) 280px; } }
+.phase-setup .library, .phase-setup .inspector { background: #11151c; }
+.phase-setup .panel-heading { font-size: 11px; letter-spacing: 0; text-transform: none; padding: 16px; }
+.phase-setup .inspector > .panel-heading { display: none; }
+.phase-setup .library-intro { padding: 4px 14px 16px; }
+.phase-setup .library-intro > p, .phase-setup .library-note, .phase-setup .library-footer { display: none; }
+.phase-setup .workspace-name { font-size: 10px; color: var(--muted); }
+.phase-setup .workspace-name input { margin-top: 6px; min-height: 34px; background: #0d1016; border-color: var(--border); }
+.phase-setup .workspace-file-menu { margin-top: 12px; color: var(--muted); font-size: 10px; }
+.phase-setup summary { cursor: pointer; }
+.phase-setup .workspace-files { margin-top: 10px; }
+.phase-setup .instrument-list { padding: 0 10px; gap: 6px; }
+.phase-setup .instrument-card { border: 1px solid transparent; border-radius: 8px; background: transparent; margin: 0 0 6px; }
+.phase-setup .instrument-card.active { border-color: #394252; background: #1b2230; box-shadow: none; }
+.phase-setup .instrument-select { padding: 12px 30px 12px 10px; }
+.phase-setup .instrument-card-top, .phase-setup .instrument-meta, .phase-setup .instrument-card-main span, .phase-setup .card-chevron { display: none; }
+.phase-setup .instrument-card-main { gap: 10px; margin: 0; }
+.phase-setup .instrument-card-main strong { font-size: 13px; margin: 0; }
+.phase-setup .instrument-card-main > svg { width: 24px; height: 24px; }
+.phase-setup .visibility-button { top: 50%; right: 6px; transform: translateY(-50%); }
+.phase-setup .available-instruments { margin: 12px 14px; padding: 12px 0; border-top: 1px solid var(--border); }
+.phase-setup .available-instruments summary { color: #c3cddd; font-size: 11px; }
+.phase-setup .available-instruments button { margin-top: 10px; }
+.phase-setup .inspector-title { padding: 20px 16px 12px; }
+.phase-setup .inspector-title > .small-label, .phase-setup .selected-badge, .phase-setup .inspector-title > p { display: none; }
+.phase-setup .inspector-title h2 { font: 600 21px 'DM Sans',sans-serif; margin: 0 0 14px; }
+.phase-setup .inspector-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.phase-setup .inspector-actions button { font-size: 10px; }
+.phase-setup .surface-mount-control { margin: 0; padding: 0 16px 10px; }
+.phase-setup .surface-mount-control button { width: 100%; }
+.phase-setup .surface-mount-control p:empty { display: none; }
+.phase-setup .surface-mount-control p { margin: 8px 0 0; font-size: 10px; }
+.phase-setup .tabs { margin: 4px 16px 0; }
+.phase-setup .control-content { padding: 12px 16px; }
+.phase-setup .section-caption, .phase-setup .control-hint, .phase-setup .move-hint, .phase-setup .placement-hint { display: none; }
+.phase-setup .joint-control { padding: 10px 0; margin: 0; }
+.phase-setup .range-labels { display: none; }
+.phase-setup .position-row label span { display: none; }
+.phase-setup .inspector-footer { padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 8px; border-top: 1px solid var(--border); }
+.phase-setup .inspector-footer > button { flex: 1; width: auto; margin: 0; font-size: 10px; }
+.phase-setup .model-details { width: 100%; padding-top: 6px; font-size: 10px; color: var(--muted); }
+.phase-setup .model-details .model-summary { margin-top: 12px; }
+.phase-setup .viewport-caption, .phase-setup .viewport-instructions { display: none; }
+.phase-setup .statusbar > span:not(:first-child) { display: none; }
+.phase-setup .instrument-card:has(.status-dot:not(.ready)) .instrument-meta { display: block; font-size: 10px; margin-top: 8px; }
+.phase-setup .position-row label { min-width: 34px; }
+
+.phase-setup .placement-fields .section-caption { display: flex; color: var(--muted); font-size: 10px; letter-spacing: 0; margin-bottom: 10px; }
+.phase-setup .placement-fields .section-caption > span:last-child { display: none; }

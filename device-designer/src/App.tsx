@@ -498,14 +498,14 @@ export default function App() {
       {phase === 'training' && classifier && <TrainingPanel context={snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting, ...(cameraPtz ? { cameraPtz } : {}) }, classifier)}/>}
       {phase === "setup" ? <aside className="library">
         <div className="panel-heading">
-          <span>INSTRUMENTS</span>
+          <span>Devices</span>
           <span className="count">
             {String(activeInstruments.length).padStart(2, "0")}
           </span>
         </div>
         <div className="library-intro">
-          <label className="workspace-name">Workspace name<input aria-label="Workspace name" maxLength={80} value={workspaceName} onChange={e => setWorkspaceName(e.target.value)} /></label>
-          <div className="workspace-files">
+          <label className="workspace-name">Workspace<input aria-label="Workspace name" maxLength={80} value={workspaceName} onChange={e => setWorkspaceName(e.target.value)} /></label>
+          <details className="workspace-file-menu"><summary>Import / export</summary><div className="workspace-files">
             <button onClick={exportSetup}>Export</button>
             <label className="file-action">Open file<input type="file" accept=".json,application/json" aria-label="Open workspace file" onChange={async e => {
               const file = e.target.files?.[0]; e.target.value = ""; if (!file) return;
@@ -517,7 +517,7 @@ export default function App() {
                 setSelected(instruments.find(i => next.workspace[i.id].present)?.id || "flex");
               } catch { setSaveError("Could not open that workspace file. Your current setup has been kept."); }
             }} /></label>
-          </div>
+          </div></details>
           <p>
             {activeInstruments.length}{" "}
             {activeInstruments.length === 1 ? "instrument" : "instruments"} in
@@ -575,8 +575,7 @@ export default function App() {
           ))}
         </div>
         {availableInstruments.length > 0 && (
-          <div className="available-instruments">
-            <span className="small-label">ADD TO WORKSPACE</span>
+          <details className="available-instruments"><summary>Add device</summary>
             {availableInstruments.map((item) => (
               <button
                 key={item.id}
@@ -587,7 +586,7 @@ export default function App() {
                 <span>{item.name}</span>
               </button>
             ))}
-          </div>
+          </details>
         )}
         <div className="library-note">
           <SquareDashed size={17} />
@@ -865,9 +864,9 @@ export default function App() {
                     setWorkspace(previous => ({ ...previous, flex: { ...previous.flex, visible: true }, tiny2: { ...previous.tiny2, visible: true } }));
                     setMounting(true);
                   }}>
-                  <Crosshair size={15} /> {mounting ? "Cancel mounting" : "Mount Tiny 2 on Flex"}
+                  <Crosshair size={15} /> {mounting ? "Cancel mounting" : "Mount camera"}
                 </button>
-                <p role="status">{mounting ? "Hover to preview the base. Click to place; Esc cancels. Drag to orbit." : mountNotice || "Choose a surface; the camera's base aligns flush. Both devices stay independently editable."}</p>
+                <p role="status">{mounting ? "Click a surface to mount. Esc to cancel." : mountNotice || ""}</p>
               </div>
             )}
             <div
@@ -883,7 +882,7 @@ export default function App() {
                 onClick={() => setTab("joints")}
               >
                 <SlidersHorizontal size={14} />
-                Joints<span>{info?.joints.length ?? "–"}</span>
+                Joints
               </button>
               <button
                 role="tab"
@@ -893,7 +892,7 @@ export default function App() {
                 onClick={() => setTab("placement")}
               >
                 <Move3D size={14} />
-                Placement
+                Position
               </button>
             </div>
             <div
@@ -959,7 +958,7 @@ export default function App() {
                   </div>
                   <div className="translation-fields">
                     <div className="section-caption">
-                      <span>WORLD POSITION</span>
+                      <span>Position</span>
                       <span>URDF origin</span>
                     </div>
                     {(["x", "y", "z"] as const).map((axis) => (
@@ -987,7 +986,7 @@ export default function App() {
                   </div>
                   <div className="rotation-fields">
                     <div className="section-caption">
-                      <span>ORIENTATION</span>
+                      <span>Rotation</span>
                       <span>Roll / pitch / yaw</span>
                     </div>
                     {(["roll", "pitch", "yaw"] as const).map((axis, index) => (
@@ -1020,7 +1019,7 @@ export default function App() {
                 onClick={() => removeInstrument(selected)}
               >
                 <Trash2 size={13} />
-                Remove {instrument.name} from workspace
+                Remove
               </button>
               <button
                 className="reset-button"
@@ -1032,10 +1031,9 @@ export default function App() {
                 }
               >
                 <RotateCcw size={13} />
-                Reset {instrument.name}
-                <span>pose + joints</span>
+                Reset
               </button>
-              <div className="model-summary">
+              <details className="model-details"><summary>Model details</summary><div className="model-summary">
                 <span>{info?.links ?? "–"} links</span>
                 <span>
                   {info
@@ -1049,7 +1047,7 @@ export default function App() {
               <a href={instrument.source} target="_blank" rel="noreferrer">
                 {instrument.notice}
                 <ExternalLink size={11} />
-              </a>
+              </a></details>
             </div>
           </>
         ) : (
