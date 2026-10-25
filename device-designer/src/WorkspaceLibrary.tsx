@@ -16,6 +16,10 @@ export function WorkspaceLibrary({ onClose, onOpen }: { onClose: () => void; onO
     dialog.current?.showModal();
     let active = true;
     try { setWorkspaces(workspaceHistory()); } catch (e) { setError((e as Error).message); }
+    fetch('/training-api/starter-workspace').then(r => { if (!r.ok) throw new Error(); return r.text(); }).then(raw => {
+      const starter = parseWorkspace(raw);
+      if (active) setWorkspaces(items => [starter, ...items.filter(w => w.name !== starter.name)]);
+    }).catch(() => {});
     loadRuns().then(items => { if (active) setRuns(items); }).catch(e => { if (active) setError(e.message); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);

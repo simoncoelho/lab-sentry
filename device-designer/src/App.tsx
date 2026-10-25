@@ -185,7 +185,7 @@ function restoreSaved(): { saved: SavedWorkspace | null; error: string } {
 
 export default function App() {
   const [restored] = useState(restoreSaved);
-  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(!restored.saved);
   const [openedRun, setOpenedRun] = useState<string>();
   const [workspaceRevision, setWorkspaceRevision] = useState(0);
   const [saved, setSaved] = useState<SavedWorkspace | null>(restored.saved);
@@ -1065,7 +1065,7 @@ export default function App() {
           <span className={`status-dot ${ready === 3 ? "ready" : ""}`} />
           {ready === 3 ? "Workspace ready" : `${ready}/3 models loaded`}
         </span>
-        <span>{phase === "setup" ? "Scene preview · no hardware connection" : phase === "serve" ? "Local REST API · live deck state" : phase === "training" ? "Local GPU training · live deck detection" : phase === "dataset" ? "Synthetic data · local rendering" : phase === "classifier" ? "Classifier definition · no training started" : "Camera comparison · linked pan/tilt controls"}</span>
+        <span>{phase === "setup" ? "Scene preview · no hardware connection" : phase === "serve" ? "Local REST API · live deck state" : phase === "training" ? "Local inference · live deck detection" : phase === "dataset" ? "Synthetic data · local rendering" : phase === "classifier" ? "Classifier definition · no training started" : "Camera comparison · linked pan/tilt controls"}</span>
         <span>
           {
             instruments.filter(

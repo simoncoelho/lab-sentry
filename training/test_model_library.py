@@ -9,7 +9,7 @@ class ModelLibraryTests(unittest.TestCase):
     def test_names_persist_and_unknown_models_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);folder=root/'runs'/'example';folder.mkdir(parents=True)
-            run={'id':'example','state':'complete','started':1,'models':{}}
+            run={'id':'example','state':'complete','started':1,'models':{task:{'weights':f'{task}/weights/best.pt'} for task in ('labware','slots')}}
             (folder/'status.json').write_text(json.dumps(run))
             with patch.object(server,'ROOT',root):
                 asyncio.run(server.save_model('example',Request()))

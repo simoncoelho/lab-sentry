@@ -1,0 +1,250 @@
+{
+  "id": "bundled-deck",
+  "state": "complete",
+  "started": 1792898469.0956616,
+  "epoch": 50,
+  "epochs": 50,
+  "metrics": {
+    "metrics/precision(B)": 0.9941525341180019,
+    "metrics/recall(B)": 0.9991903523818417,
+    "metrics/mAP50(B)": 0.995,
+    "metrics/mAP50-95(B)": 0.9949999999999999
+  },
+  "models": {
+    "labware": {
+      "weights": "labware/weights/best.pt",
+      "metrics": {
+        "metrics/precision(B)": 0.9983305877221916,
+        "metrics/recall(B)": 1.0,
+        "metrics/mAP50(B)": 0.995,
+        "metrics/mAP50-95(B)": 0.9923333333333334,
+        "fitness": 0.9923333333333334
+      },
+      "classes": {
+        "0": "Tip rack",
+        "1": "Microplate",
+        "2": "Reservoir"
+      },
+      "perClass": [
+        {
+          "Class": "Tip rack",
+          "Images": 15,
+          "Instances": 28,
+          "Box-P": 0.99742,
+          "Box-R": 1.0,
+          "Box-F1": 0.99871,
+          "mAP50": 0.995,
+          "mAP75": 0.995,
+          "mAP50-95": 0.995
+        },
+        {
+          "Class": "Microplate",
+          "Images": 19,
+          "Instances": 22,
+          "Box-P": 1.0,
+          "Box-R": 1.0,
+          "Box-F1": 1.0,
+          "mAP50": 0.995,
+          "mAP75": 0.995,
+          "mAP50-95": 0.995
+        },
+        {
+          "Class": "Reservoir",
+          "Images": 19,
+          "Instances": 21,
+          "Box-P": 0.99757,
+          "Box-R": 1.0,
+          "Box-F1": 0.99878,
+          "mAP50": 0.995,
+          "mAP75": 0.995,
+          "mAP50-95": 0.987
+        }
+      ]
+    },
+    "slots": {
+      "weights": "slots/weights/best.pt",
+      "metrics": {
+        "metrics/precision(B)": 0.9941533637106353,
+        "metrics/recall(B)": 0.9991670385917836,
+        "metrics/mAP50(B)": 0.995,
+        "metrics/mAP50-95(B)": 0.9949999999999999,
+        "fitness": 0.9949999999999999
+      },
+      "classes": {
+        "0": "occupied",
+        "1": "empty",
+        "2": "obscured",
+        "3": "unknown"
+      },
+      "perClass": [
+        {
+          "Class": "occupied",
+          "Images": 20,
+          "Instances": 91,
+          "Box-P": 0.98846,
+          "Box-R": 1.0,
+          "Box-F1": 0.99419,
+          "mAP50": 0.995,
+          "mAP75": 0.995,
+          "mAP50-95": 0.995
+        },
+        {
+          "Class": "empty",
+          "Images": 20,
+          "Instances": 110,
+          "Box-P": 0.98816,
+          "Box-R": 1.0,
+          "Box-F1": 0.99404,
+          "mAP50": 0.995,
+          "mAP75": 0.995,
+          "mAP50-95": 0.995
+        },
+        {
+          "Class": "obscured",
+          "Images": 12,
+          "Instances": 20,
+          "Box-P": 1.0,
+          "Box-R": 0.99667,
+          "Box-F1": 0.99833,
+          "mAP50": 0.995,
+          "mAP75": 0.995,
+          "mAP50-95": 0.995
+        },
+        {
+          "Class": "unknown",
+          "Images": 19,
+          "Instances": 19,
+          "Box-P": 1.0,
+          "Box-R": 1.0,
+          "Box-F1": 1.0,
+          "mAP50": 0.995,
+          "mAP75": 0.995,
+          "mAP50-95": 0.995
+        }
+      ]
+    }
+  },
+  "augmentation": {
+    "scope": "previewed input images; no additional camera noise or HSV changes"
+  },
+  "gpu": "NVIDIA GeForce RTX 5080 Laptop GPU",
+  "audit": {
+    "images": {
+      "train": 497,
+      "val": 20
+    },
+    "instances": {
+      "train:Microplate": 508,
+      "train:Reservoir": 508,
+      "train:Tip rack": 504,
+      "val:Microplate": 22,
+      "val:Tip rack": 28,
+      "val:Reservoir": 21
+    },
+    "slotStates": {
+      "train:occupied": 2007,
+      "train:empty": 3264,
+      "train:unknown": 391,
+      "train:obscured": 302,
+      "val:empty": 110,
+      "val:occupied": 91,
+      "val:obscured": 20,
+      "val:unknown": 19
+    },
+    "uniqueImages": 515,
+    "uniqueLayouts": 321,
+    "supportedClasses": [
+      "Tip rack",
+      "Microplate",
+      "Reservoir"
+    ],
+    "unsupportedClasses": [
+      "Tube rack",
+      "Other labware"
+    ],
+    "readiness": "synthetic baseline; real-world performance unverified",
+    "slotInstances": {
+      "train:A1:Microplate": 35,
+      "train:D3:Reservoir": 63,
+      "train:A2:Tip rack": 65,
+      "train:B1:Microplate": 38,
+      "train:B2:Tip rack": 26,
+      "train:C2:Microplate": 30,
+      "train:D1:Reservoir": 43,
+      "train:A1:Reservoir": 36,
+      "train:A2:Microplate": 50,
+      "train:B1:Tip rack": 41,
+      "train:B3:Tip rack": 44,
+      "train:C1:Reservoir": 42,
+      "train:C3:Microplate": 48,
+      "train:D2:Tip rack": 64,
+      "train:D1:Tip rack": 37,
+      "train:A1:Tip rack": 56,
+      "train:A2:Reservoir": 57,
+      "train:B2:Microplate": 120,
+      "train:C1:Microplate": 36,
+      "train:C2:Reservoir": 43,
+      "train:B1:Reservoir": 41,
+      "train:B3:Microplate": 40,
+      "train:C1:Tip rack": 33,
+      "train:C3:Reservoir": 57,
+      "train:D2:Microplate": 30,
+      "train:B2:Reservoir": 32,
+      "train:C3:Tip rack": 27,
+      "train:D1:Microplate": 36,
+      "train:D3:Tip rack": 50,
+      "train:C2:Tip rack": 61,
+      "train:D2:Reservoir": 45,
+      "train:D3:Microplate": 45,
+      "train:B3:Reservoir": 49,
+      "val:B2:Microplate": 2,
+      "val:D1:Tip rack": 1,
+      "val:A2:Tip rack": 2,
+      "val:C1:Tip rack": 4,
+      "val:B3:Microplate": 3,
+      "val:D2:Reservoir": 3,
+      "val:B1:Tip rack": 3,
+      "val:C3:Microplate": 4,
+      "val:A1:Reservoir": 3,
+      "val:B2:Reservoir": 3,
+      "val:C3:Tip rack": 2,
+      "val:A2:Microplate": 3,
+      "val:B1:Reservoir": 1,
+      "val:C2:Tip rack": 4,
+      "val:D3:Tip rack": 2,
+      "val:B3:Tip rack": 2,
+      "val:C1:Microplate": 1,
+      "val:C2:Reservoir": 3,
+      "val:B1:Microplate": 3,
+      "val:D3:Reservoir": 3,
+      "val:B2:Tip rack": 4,
+      "val:D2:Microplate": 3,
+      "val:B3:Reservoir": 2,
+      "val:D2:Tip rack": 3,
+      "val:C2:Microplate": 1,
+      "val:A2:Reservoir": 1,
+      "val:A1:Tip rack": 1,
+      "val:C3:Reservoir": 1,
+      "val:A1:Microplate": 2,
+      "val:C1:Reservoir": 1
+    },
+    "negativeImages": {
+      "train": 69
+    },
+    "uniqueRecipes": 435,
+    "gantryVariations": 88,
+    "slotImages": {
+      "train": 507,
+      "val": 20,
+      "test": 0
+    }
+  },
+  "realAdaptation": {
+    "uniqueImages": 1,
+    "samplingCopies": 20,
+    "scope": "One reviewed layout in training only. Live checks on this layout are not independent validation."
+  },
+  "task": "slots",
+  "elapsed": 2172,
+  "name": "Flex deck - ready to run"
+}

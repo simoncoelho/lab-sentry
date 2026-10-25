@@ -1795,7 +1795,7 @@ svg {
 .detection-camera img { display:block; width:100%; aspect-ratio:16/9; object-fit:contain; }
 .detection-camera-toolbar { padding:12px 16px; justify-content:space-between; font-size:12px; }
 .detection-camera-toolbar span { color:var(--muted); }
-.detection-placeholder { aspect-ratio:16/9; display:flex; flex-direction:column; gap:12px; align-items:center; justify-content:center; color:var(--muted); font-size:13px; }
+.detection-placeholder { max-height:max(240px, calc(100vh - 450px)); aspect-ratio:16/9; display:flex; flex-direction:column; gap:12px; align-items:center; justify-content:center; color:var(--muted); font-size:13px; }
 .detection-deck { border:1px solid var(--border); padding:16px; border-radius:9px; }
 .detection-deck header { justify-content:space-between; font-size:13px; margin-bottom:18px; }
 .detection-deck header span, .detection-deck p { color:var(--muted); font-size:11px; }

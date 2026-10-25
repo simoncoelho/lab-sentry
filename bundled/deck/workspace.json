@@ -1,0 +1,151 @@
+{
+  "version": 1,
+  "name": "Flex deck - included setup",
+  "savedAt": "2026-10-25T02:28:22.584Z",
+  "workspace": {
+    "flex": {
+      "present": true,
+      "visible": true,
+      "pose": {
+        "x": -0.55,
+        "y": 0,
+        "z": 0,
+        "roll": 0,
+        "pitch": 0,
+        "yaw": 0
+      },
+      "joints": {
+        "gantry_y_joint": 0,
+        "carriage_x_joint": 0,
+        "carriage_z_joint": 0,
+        "gripper_z_joint": 0,
+        "front_door_lift_joint": 0,
+        "front_door_fold_joint": 0
+      }
+    },
+    "ot2": {
+      "present": false,
+      "visible": true,
+      "pose": {
+        "x": 0.55,
+        "y": 0,
+        "z": 0,
+        "roll": 0,
+        "pitch": 0,
+        "yaw": 0
+      },
+      "joints": {
+        "Slider_3": 0,
+        "Slider_4": 0,
+        "Slider_5": 0.05
+      }
+    },
+    "tiny2": {
+      "present": true,
+      "visible": true,
+      "pose": {
+        "x": -0.9491304,
+        "y": -0.2726754,
+        "z": 0.6081885,
+        "roll": -142.81976,
+        "pitch": 84.621585,
+        "yaw": -104.071451
+      },
+      "joints": {
+        "obsbot_pan_joint": 0.17453292519943295,
+        "obsbot_tilt_joint": 0.6981317007977318
+      }
+    }
+  },
+  "view": {
+    "acrylicVisible": false,
+    "grid": true,
+    "horizontalFov": 71.7,
+    "lighting": {
+      "exposure": 1.8,
+      "tint": [
+        0.9859865380764393,
+        1.002652432981741,
+        1.0150550666073401
+      ]
+    },
+    "cameraPtz": {
+      "pan": 10,
+      "tilt": 40,
+      "zoom": 0,
+      "device": "OBSBOT Tiny SE StreamCamera"
+    }
+  },
+  "classifier": {
+    "name": "Labware & deck occupancy",
+    "objective": "Identify labware occupying each visible Flex deck slot. Label transparent labware only when its structure is identifiable; label empty only when the entire slot footprint is verifiably unoccupied. Route ambiguous, obscured, or unsupported views to manual review rather than forcing a class. Split data by capture session to prevent leakage.",
+    "unit": "deck_slot",
+    "mode": "single",
+    "classes": [
+      {
+        "id": "4f78556a-3775-4a25-917e-1c9c094c4df5",
+        "name": "Empty slot",
+        "description": "The entire slot footprint is sufficiently visible to confirm that no labware is present. Check for transparent rims, walls, wells, and reflections before assigning this label.",
+        "exclude": "Any labware, including transparent labware. Shadows, glare, occlusion, or fixtures that prevent confirming absence require manual review.",
+        "color": "#90BAFF"
+      },
+      {
+        "id": "d5312c68-f12c-4ca2-a35e-13cb6da76a80",
+        "name": "Tip rack",
+        "description": "A pipette tip rack occupies the slot, with or without tips. Transparent or partially obscured racks qualify only when visible structural features unambiguously identify a tip rack and its slot.",
+        "exclude": "Tube racks and microplates. Tip count is irrelevant. Uncertain identity, slot assignment, or ambiguous stacks require manual review.",
+        "color": "#76D4BA"
+      },
+      {
+        "id": "2540fcab-93e3-42de-89ec-4a5ef566d5ae",
+        "name": "Microplate",
+        "description": "A well plate occupies the slot, including PCR or deep-well plates. Transparent or partially obscured plates qualify only when visible well and plate structure unambiguously establishes identity and slot assignment.",
+        "exclude": "Tip racks and reservoirs. Glare, occlusion, or stacks that make identity or slot assignment ambiguous require manual review.",
+        "color": "#EDC77D"
+      },
+      {
+        "id": "7cf92f00-fb68-44ea-b963-2db132869788",
+        "name": "Reservoir",
+        "description": "A reagent reservoir occupies the slot. Transparent or partially obscured reservoirs qualify only when visible walls and compartment structure unambiguously establish identity and slot assignment; liquid visibility alone is insufficient.",
+        "exclude": "Microplates, waste containers, and empty slots. Uncertain identity, slot assignment, or ambiguous stacks require manual review.",
+        "color": "#C6A3ED"
+      },
+      {
+        "id": "ac0a31fd-e1f2-461b-98f3-65608d8d06b7",
+        "name": "Tube rack",
+        "description": "A rack for individual tubes occupies the slot. Transparent or partially obscured racks qualify only when visible rack structure unambiguously establishes identity and slot assignment.",
+        "exclude": "Pipette tip racks and well plates. Uncertain identity, slot assignment, or ambiguous stacks require manual review.",
+        "color": "#EE9CAA"
+      },
+      {
+        "id": "713e5886-0ceb-4fb7-b986-44cbac75733c",
+        "name": "Other labware",
+        "description": "Clearly identifiable labware occupies the slot and demonstrably falls outside the other defined labware classes. Transparent items qualify only when sufficient structure is visible to make that determination.",
+        "exclude": "Not a fallback for uncertain identity. Obscured or ambiguous views, uncertain slot assignments, ambiguous stacks, and hardware modules require manual review.",
+        "color": "#83CBDC"
+      }
+    ],
+    "slots": [
+      "A1",
+      "A2",
+      "A3",
+      "B1",
+      "B2",
+      "B3",
+      "C1",
+      "C2",
+      "C3",
+      "D1",
+      "D2",
+      "D3"
+    ],
+    "examplesPerClass": 250,
+    "validationPercent": 15,
+    "testPercent": 15,
+    "variations": [
+      "Lighting",
+      "Object position",
+      "Occlusion"
+    ]
+  }
+}

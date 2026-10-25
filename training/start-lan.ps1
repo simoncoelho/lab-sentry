@@ -6,4 +6,6 @@ if (-not $Address) {
 }
 if (-not $Address) { throw 'No LAN IPv4 address found. Supply -Address explicitly.' }
 Write-Host "Read-only deck API: http://${Address}:$Port/api/v1/deck-state"
-& "$PSScriptRoot/.venv/Scripts/python.exe" "$PSScriptRoot/lan_server.py" --host $Address --port $Port
+$python = Join-Path $PSScriptRoot '../.runtime/python/Scripts/python.exe'
+if (-not (Test-Path $python)) { $python = Join-Path $PSScriptRoot '.venv/Scripts/python.exe' }
+& $python "$PSScriptRoot/lan_server.py" --host $Address --port $Port

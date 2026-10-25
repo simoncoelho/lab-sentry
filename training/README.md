@@ -1,5 +1,7 @@
 # Local deck detection
 
+For the Windows CPU handoff, use **Setup.cmd → Start.cmd** at the repository root. The included deck model runs without CUDA, a generated dataset, or a Codex login. See the [root quick start](../README.md). The setup below is the optional GPU training/developer path.
+
 The fifth workflow phase prepares the saved synthetic runs, fine-tunes two pretrained YOLO26n detectors on the local NVIDIA GPU, and runs inference on the OBSBOT stream. One detector identifies supported labware classes; the other predicts observed slot states. All twelve positions are returned, including unknown and obscured positions. Nothing is uploaded to a training service.
 
 ## Setup
@@ -30,7 +32,7 @@ Image count alone is not a quality gate. Review per-class counts, distinct layou
 
 **Include reviewed camera reference** adds the local `training/data/real-check/image.jpg` and its manually checked `labels.json` to training only. The single image is sampled twenty times to provide domain adaptation, explicitly recorded as one unique image in run metadata. Both labware boxes and optional complete slot states can be supplied. The current reference was labeled from the calibrated camera photograph; checking the same physical arrangement afterward measures fit to a known layout, not generalization. Do not enable this option for a different calibration without replacing and reviewing the reference labels.
 
-Runtime matches reference landmarks to reject shifted camera views, associates boxes with calibrated slot geometry, and preserves unknown for ambiguous, stale or unseen observations. A missing object detection is never interpreted as empty by itself. Partially cropped slots cannot be called empty. The reference photograph currently comes from `~/Downloads/lab-sentry-fixed-deck-2026-10-24/calibration-fixed.jpg`; set `LAB_SENTRY_DATASET` before service startup to change the initial dataset and sibling reference location. A different workspace needs its own reference and calibration.
+Runtime matches reference landmarks to reject shifted camera views, associates boxes with calibrated slot geometry, and preserves unknown for ambiguous, stale or unseen observations. A missing object detection is never interpreted as empty by itself. Partially cropped slots cannot be called empty. The default reference and inference manifest are packaged in `bundled/deck/`. A model-local `calibration-fixed.jpg` travels with exported models; legacy training runs use the matching default reference. Set `LAB_SENTRY_DATASET` to override the default dataset and sibling reference location. A different workspace needs its own reference and calibration. `LAB_SENTRY_DEVICE=auto|cpu|cuda` selects inference hardware; the Windows launcher uses CPU by default.
 
 The current library supports tip racks, microplates and reservoirs. Clear-labware product identities and some 3D shapes are approximate. Unsupported tube racks/other labware do not become trained classes merely by appearing in a classifier definition. Runtime confidence is a model score, not a calibrated probability of correctness.
 

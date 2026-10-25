@@ -110,6 +110,8 @@ class Runtime:
         try:
             from ultralytics import YOLO
             import torch
+            from inference_device import inference_device
+            device = inference_device()
             torch.set_num_threads(6)
             models={k:YOLO(v['weights']) for k,v in status['models'].items()}
             run_dir=Path(status['models']['labware']['weights']).parents[2]
@@ -124,84 +126,85 @@ class Runtime:
             ref=cv2.imread(str(reference),0) if reference else None
             sift=cv2.SIFT_create(nfeatures=1500)
             refkp,refdesc=sift.detectAndCompute(ref,None) if ref is not None else ([],None)
+            connection=requests.post('http://127.0.0.1:5101/connect',json={},timeout=8)
+            if not connection.ok:
+                try:message=connection.json().get('error','Connect the OBSBOT by USB, then try again.')
+                except ValueError:message='Camera controls unavailable. Connect the OBSBOT by USB, then try again.'
+                raise RuntimeError(message)
             with requests.get('http://127.0.0.1:5100/obsbot/video.mjpeg?orientation=none',stream=True,timeout=(5,12)) as stream:
                 stream.raise_for_status()
                 ptz=manifest['runs'][0]['context']['view'].get('cameraPtz')
                 if not ptz: raise ValueError('Dataset has no saved hardware PTZ')
-                requests.post('http://127.0.0.1:5101/connect',json={},timeout=8).raise_for_status()
                 if restore_ptz:
                     requests.post('http://127.0.0.1:5101/target',json={k:ptz[k] for k in ['pan','tilt','zoom']},timeout=8).raise_for_status()
-                buffer=b'';last=0;started=time.time();alignment={'ok':False,'reason':'settling camera'};previous_gray=None;last_motion={}
-                for chunk in stream.iter_content(16384):
-                    if self.stop_event.is_set():break
-                    buffer+=chunk; a=buffer.find(b'\xff\xd8');b=buffer.find(b'\xff\xd9',a+2)
-                    while a>=0 and b>=0:
-                        encoded=buffer[a:b+2];buffer=buffer[b+2:];a=buffer.find(b'\xff\xd8');b=buffer.find(b'\xff\xd9',a+2)
-                        if time.time()-last<.25:continue
-                        last=time.time();image=cv2.imdecode(np.frombuffer(encoded,np.uint8),cv2.IMREAD_COLOR)
-                        if image is None:continue
-                        if last-started<5:continue
-                        gray=cv2.resize(cv2.cvtColor(image,cv2.COLOR_BGR2GRAY),(640,360))
-                        kp,desc=sift.detectAndCompute(gray,None)
-                        alignment={'ok':False,'reason':'reference landmarks unavailable'}; view_transform=None
-                        if refdesc is not None and desc is not None and len(desc)>=2:
-                            pairs=cv2.BFMatcher().knnMatch(refdesc,desc,k=2);good=[m for pair in pairs if len(pair)==2 for m,n in [pair] if m.distance<.7*n.distance]
-                            if len(good)>=12:
-                                src=np.float32([refkp[m.queryIdx].pt for m in good]);dst=np.float32([kp[m.trainIdx].pt for m in good])
-                                h,mask=cv2.findHomography(src,dst,cv2.RANSAC,3)
-                                if h is not None and mask is not None and mask.sum()>=12:
-                                    alignment=alignment_quality(h,src,dst,mask)
-                                    if alignment['ok']:view_transform=h
-                        # Correct supported PTZ drift before using fixed-view geometry.
-                        inference_image=cv2.warpPerspective(cv2.resize(image,(640,360)),np.linalg.inv(view_transform),(640,360)) if view_transform is not None else image
-                        observed_gray=cv2.GaussianBlur(cv2.cvtColor(cv2.resize(inference_image,(640,360)),cv2.COLOR_BGR2GRAY),(5,5),0)
-                        if alignment['ok']:
-                            for slot in moving_slots(previous_gray,observed_gray,polygons):last_motion[slot]=last
-                            previous_gray=observed_gray
-                        else:
-                            previous_gray=None
-                        detections={}
-                        for task,model in models.items():
-                            pred=model.predict(inference_image,imgsz=960,conf=.25,device=0,verbose=False)[0]
-                            detections[task]=[{'box':b,'confidence':float(c),'label':pred.names[int(k)]} for b,c,k in zip(pred.boxes.xyxyn.cpu().tolist(),pred.boxes.conf.cpu().tolist(),pred.boxes.cls.cpu().tolist())]
-                        observations=detections['slots']
-                        if view_transform is not None:
-                            # Mask slot-only evidence for positions partly outside the actual camera frame.
-                            visible_slots={}
-                            for slot, points in polygons.items():
-                                live=cv2.perspectiveTransform(np.float32([[[x*640,y*360] for x,y in points]]),view_transform)[0]
-                                if all(0<=x<=640 and 0<=y<=360 for x,y in live):visible_slots[slot]=points
-                            slots=resolve_slots(detections['labware'],observations,visible_slots,templates) if alignment['ok'] else unknown(alignment['reason'])
-                        else:
-                            slots=unknown(alignment['reason'])
-                        if alignment['ok']:
-                            slots=settle_slots(slots,last_motion,last)
-                            moving={item['slot'] for item in slots if item['reason']=='motion in slot; waiting to settle'}
-                            for obj in detections['labware']:
-                                if obj.get('slot') in moving:obj.pop('slot',None)
-                        height,width=image.shape[:2]
+                from camera_frames import latest_frames
+                last=0;started=time.time();alignment={'ok':False,'reason':'settling camera'};previous_gray=None;last_motion={}
+                for encoded,captured_at in latest_frames(stream,self.stop_event):
+                    if time.time()-last<.25:continue
+                    last=time.time();image=cv2.imdecode(np.frombuffer(encoded,np.uint8),cv2.IMREAD_COLOR)
+                    if image is None:continue
+                    if last-started<5:continue
+                    gray=cv2.resize(cv2.cvtColor(image,cv2.COLOR_BGR2GRAY),(640,360))
+                    kp,desc=sift.detectAndCompute(gray,None)
+                    alignment={'ok':False,'reason':'reference landmarks unavailable'}; view_transform=None
+                    if refdesc is not None and desc is not None and len(desc)>=2:
+                        pairs=cv2.BFMatcher().knnMatch(refdesc,desc,k=2);good=[m for pair in pairs if len(pair)==2 for m,n in [pair] if m.distance<.7*n.distance]
+                        if len(good)>=12:
+                            src=np.float32([refkp[m.queryIdx].pt for m in good]);dst=np.float32([kp[m.trainIdx].pt for m in good])
+                            h,mask=cv2.findHomography(src,dst,cv2.RANSAC,3)
+                            if h is not None and mask is not None and mask.sum()>=12:
+                                alignment=alignment_quality(h,src,dst,mask)
+                                if alignment['ok']:view_transform=h
+                    # Correct supported PTZ drift before using fixed-view geometry.
+                    inference_image=cv2.warpPerspective(cv2.resize(image,(640,360)),np.linalg.inv(view_transform),(640,360)) if view_transform is not None else image
+                    observed_gray=cv2.GaussianBlur(cv2.cvtColor(cv2.resize(inference_image,(640,360)),cv2.COLOR_BGR2GRAY),(5,5),0)
+                    if alignment['ok']:
+                        for slot in moving_slots(previous_gray,observed_gray,polygons):last_motion[slot]=last
+                        previous_gray=observed_gray
+                    else:
+                        previous_gray=None
+                    detections={}
+                    for task,model in models.items():
+                        pred=model.predict(inference_image,imgsz=960,conf=.25,device=device,verbose=False)[0]
+                        detections[task]=[{'box':b,'confidence':float(c),'label':pred.names[int(k)]} for b,c,k in zip(pred.boxes.xyxyn.cpu().tolist(),pred.boxes.conf.cpu().tolist(),pred.boxes.cls.cpu().tolist())]
+                    observations=detections['slots']
+                    if view_transform is not None:
+                        # Mask slot-only evidence for positions partly outside the actual camera frame.
+                        visible_slots={}
+                        for slot, points in polygons.items():
+                            live=cv2.perspectiveTransform(np.float32([[[x*640,y*360] for x,y in points]]),view_transform)[0]
+                            if all(0<=x<=640 and 0<=y<=360 for x,y in live):visible_slots[slot]=points
+                        slots=resolve_slots(detections['labware'],observations,visible_slots,templates) if alignment['ok'] else unknown(alignment['reason'])
+                    else:
+                        slots=unknown(alignment['reason'])
+                    if alignment['ok']:
+                        slots=settle_slots(slots,last_motion,last)
+                        moving={item['slot'] for item in slots if item['reason']=='motion in slot; waiting to settle'}
                         for obj in detections['labware']:
-                            box=obj['box']
-                            if view_transform is not None:
-                                x1,y1,x2,y2=box
-                                corners=np.float32([[[x1*640,y1*360],[x2*640,y1*360],[x2*640,y2*360],[x1*640,y2*360]]])
-                                moved=cv2.perspectiveTransform(corners,view_transform)[0]
-                                box=[float(moved[:,0].min()/640),float(moved[:,1].min()/360),float(moved[:,0].max()/640),float(moved[:,1].max()/360)]
-                            obj['liveBox']=box
-                            x1,y1,x2,y2=[int(v*(width if i%2==0 else height)) for i,v in enumerate(box)]
-                            cv2.rectangle(image,(x1,y1),(x2,y2),(98,218,153),2)
-                            label = f'{obj["label"]} {obj["confidence"]:.0%}'
-                            if obj.get('slot'): label = f'{obj["slot"]} | {label}'
-                            (tw,th),baseline=cv2.getTextSize(label,cv2.FONT_HERSHEY_SIMPLEX,.4,1)
-                            tx=max(0,min(x1,width-tw-8));ty=max(th+8,min(y1-4,height-baseline-2))
-                            cv2.rectangle(image,(tx,ty-th-6),(tx+tw+8,ty+baseline+2),(20,32,27),-1)
-                            cv2.putText(image,label,(tx+4,ty-2),cv2.FONT_HERSHEY_SIMPLEX,.4,(170,239,201),1,cv2.LINE_AA)
-                        ok,jpeg=cv2.imencode('.jpg',image)
-                        if self.stop_event.is_set():break
-                        with self.lock:
-                            self.raw_jpeg=encoded
-                            self.jpeg=jpeg.tobytes() if ok else None
-                            self.state={'running':True,'timestamp':time.time(),'model':status['id'],'alignment':alignment,'slots':slots,'objects':detections['labware'],'warning':'Synthetic-trained baseline. Real-world validation pending.'}
+                            if obj.get('slot') in moving:obj.pop('slot',None)
+                    height,width=image.shape[:2]
+                    for obj in detections['labware']:
+                        box=obj['box']
+                        if view_transform is not None:
+                            x1,y1,x2,y2=box
+                            corners=np.float32([[[x1*640,y1*360],[x2*640,y1*360],[x2*640,y2*360],[x1*640,y2*360]]])
+                            moved=cv2.perspectiveTransform(corners,view_transform)[0]
+                            box=[float(moved[:,0].min()/640),float(moved[:,1].min()/360),float(moved[:,0].max()/640),float(moved[:,1].max()/360)]
+                        obj['liveBox']=box
+                        x1,y1,x2,y2=[int(v*(width if i%2==0 else height)) for i,v in enumerate(box)]
+                        cv2.rectangle(image,(x1,y1),(x2,y2),(98,218,153),2)
+                        label = f'{obj["label"]} {obj["confidence"]:.0%}'
+                        if obj.get('slot'): label = f'{obj["slot"]} | {label}'
+                        (tw,th),baseline=cv2.getTextSize(label,cv2.FONT_HERSHEY_SIMPLEX,.4,1)
+                        tx=max(0,min(x1,width-tw-8));ty=max(th+8,min(y1-4,height-baseline-2))
+                        cv2.rectangle(image,(tx,ty-th-6),(tx+tw+8,ty+baseline+2),(20,32,27),-1)
+                        cv2.putText(image,label,(tx+4,ty-2),cv2.FONT_HERSHEY_SIMPLEX,.4,(170,239,201),1,cv2.LINE_AA)
+                    ok,jpeg=cv2.imencode('.jpg',image)
+                    if self.stop_event.is_set():break
+                    with self.lock:
+                        self.raw_jpeg=encoded
+                        self.jpeg=jpeg.tobytes() if ok else None
+                        self.state={'running':True,'timestamp':captured_at,'model':status['id'],'alignment':alignment,'slots':slots,'objects':detections['labware'],'warning':'Synthetic-trained baseline. Real-world validation pending.'}
         except Exception as error:
             with self.lock:self.state.update(running=False,error=str(error),slots=unknown(str(error)))
         finally:

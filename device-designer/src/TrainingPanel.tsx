@@ -13,13 +13,13 @@ import type { SavedWorkspace } from './workspace-file';
 
 
 
-type Report = { images?: Record<string, number>; uniqueLayouts?: number; supportedClasses?: string[]; unsupportedClasses?: string[]; error?: string };
+type Report = { inferenceOnly?: boolean; images?: Record<string, number>; uniqueLayouts?: number; supportedClasses?: string[]; unsupportedClasses?: string[]; error?: string };
 
 type Run = { id: string; name?: string; state: string; task?: string; epoch: number; epochs: number; gpu?: string; error?: string; models: Record<string, { metrics: Record<string, number> }>; audit?: Report; realAdaptation?: { uniqueImages: number } };
 
 type Slot = { slot: string; state: string; label?: string; confidence: number; reason: string };
 
-type Status = { dataset: Report; training: boolean; runs: Run[]; runtime: { model?: string; running: boolean; error?: string; stale?: boolean; timestamp?: number; slots: Slot[]; alignment?: { ok: boolean; reason: string }; warning?: string } };
+type Status = { capabilities?: { training: boolean; device: string }; dataset: Report; training: boolean; runs: Run[]; runtime: { model?: string; running: boolean; error?: string; stale?: boolean; timestamp?: number; slots: Slot[]; alignment?: { ok: boolean; reason: string }; warning?: string } };
 
 const key = (context: SavedWorkspace) => JSON.stringify({ workspace: context.workspace, view: context.view, classifier: context.classifier });
 
@@ -33,7 +33,7 @@ export function TrainingPanel({ context }: { context: SavedWorkspace }) {
 
   const [error, setError] = useState(''), [busy, setBusy] = useState(false), [epochs, setEpochs] = useState(100);
 
-  const [model, setModel] = useState('');
+  const [model, setModel] = useState('bundled-deck');
 
   const [preparation, setPreparation] = useState('');
   const [savedName, setSavedName] = useState('');
@@ -94,6 +94,7 @@ export function TrainingPanel({ context }: { context: SavedWorkspace }) {
   const active = status?.training || status?.runtime.running || busy;
 
   const report = status?.dataset;
+  const canTrain = status?.capabilities?.training === true;
 
   const chosen = complete.find(run => run.id === (status?.runtime.running ? status.runtime.model : model)) ?? complete[0];
 
@@ -103,20 +104,21 @@ export function TrainingPanel({ context }: { context: SavedWorkspace }) {
 
     <div className="training-toolbar"><div><span className="eyebrow">05 / TRAIN & RUN</span><h1>Deck detection</h1></div>
 
-      <div className="training-actions"><button disabled={active} onClick={useDataset}><Database size={15}/> Use generated dataset</button>
+      {canTrain && <div className="training-actions"><button disabled={active} onClick={useDataset}><Database size={15}/> Use generated dataset</button>
 
         <label>Epochs <input aria-label="Training epochs" type="number" min={10} max={300} value={epochs} onChange={e => setEpochs(Number(e.target.value))}/></label>
 
-        <button className="primary-action" disabled={active || !report?.images} onClick={() => action('train', { epochs, realReference, extraNoise })}><Cpu size={15}/> Train YOLO</button></div></div>
+        <button className="primary-action" title={status?.capabilities?.training === false ? 'Training needs an NVIDIA GPU. Run a saved model below on CPU.' : undefined} disabled={active || !report?.images || report.inferenceOnly || status?.capabilities?.training === false} onClick={() => action('train', { epochs, realReference, extraNoise })}><Cpu size={15}/> Train YOLO</button></div>}</div>
+    {status?.capabilities?.device === 'cpu' && <p className="training-footnote">CPU inference ready · Select a saved model and Run detection.</p>}
 
-    <label className="training-reference"><input type="checkbox" checked={realReference} disabled={active} onChange={e => setRealReference(e.target.checked)}/> Include reviewed camera reference <span>One layout · adaptation only</span></label>
+    {canTrain && <><label className="training-reference"><input type="checkbox" checked={realReference} disabled={active} onChange={e => setRealReference(e.target.checked)}/> Include reviewed camera reference <span>One layout · adaptation only</span></label>
 
-    <label className="training-reference"><input type="checkbox" checked={extraNoise} disabled={active} onChange={e => setExtraNoise(e.target.checked)}/> Extra random camera effects during training <span>Off uses saved preview pixels</span></label>
+    <label className="training-reference"><input type="checkbox" checked={extraNoise} disabled={active} onChange={e => setExtraNoise(e.target.checked)}/> Extra random camera effects during training <span>Off uses saved preview pixels</span></label></>}
 
     {busy && preparation && <p role="status">{preparation}</p>}
     {error && <p role="alert" className="training-error">{error}</p>}
 
-    <div className="training-summary">
+    {canTrain && <><div className="training-summary">
 
       {['train', 'val', 'test'].map(split => <div key={split}><strong>{report?.images?.[split] ?? 0}</strong><span>{split === 'val' ? 'Validation' : split === 'train' ? 'Training images' : 'Test images'}</span></div>)}
 
@@ -128,15 +130,16 @@ export function TrainingPanel({ context }: { context: SavedWorkspace }) {
 
     {latest && <div className="training-progress" role="status"><Cpu size={16}/><strong>{latest.state === 'training' ? `${latest.task === 'slots' ? '2 of 2 · Slot detector' : '1 of 2 · Labware detector'}` : latest.state === 'complete' ? 'Training complete' : latest.state}</strong><span>{latest.state === 'complete' ? 'Both models saved' : `${latest.epoch} / ${latest.epochs} epochs${latest.task === 'slots' ? ' · Labware complete' : ' · Slots next'}`}</span><progress aria-label="Overall two-model training progress" max={latest.epochs * 2} value={latest.state === 'complete' ? latest.epochs * 2 : latest.epoch + (latest.task === 'slots' ? latest.epochs : 0)}/>{latest.error && <span>{latest.error}</span>}</div>}
 
+    </>}
     <div className="detection-layout">
 
       <div className="detection-camera"><div className="detection-camera-toolbar"><strong>Live camera</strong><span>{status?.runtime.running ? status.runtime.stale ? 'Waiting for frame' : status.runtime.alignment?.ok ? 'View aligned' : status.runtime.alignment?.reason === 'camera view changed' ? 'View changed · slot mapping unavailable' : status.runtime.alignment?.reason ?? 'Connecting' : status?.training ? 'Paused during training' : 'Stopped'}</span></div>
 
-        {status?.runtime.running && status.runtime.timestamp && !status.runtime.stale ? <img src={`/training-api/runtime/frame.jpg?t=${status.runtime.timestamp}`} alt="Live YOLO labware detections"/> : <div className="detection-placeholder"><Cpu size={30}/><span>{status?.runtime.running ? 'Connecting to live camera…' : status?.training ? 'Training on your GPU' : 'Ready when your model is'}</span></div>}
-
         <div className="detection-camera-toolbar"><select aria-label="Detection model" value={chosen?.id ?? ''} disabled={active} onChange={e => setModel(e.target.value)}>{!complete.length && <option value="">No trained model</option>}{complete.map(run => <option key={run.id} value={run.id}>{run.name ?? run.id}</option>)}</select>
 
           {status?.runtime.running ? <button onClick={() => action('runtime/stop')} disabled={busy}><Square size={14}/> Stop</button> : <button className="primary-action" disabled={active || !chosen} onClick={() => action('runtime/start', { id: chosen?.id })}><Play size={14}/> Run detection</button>}</div>
+
+        {status?.runtime.running && status.runtime.timestamp && !status.runtime.stale ? <img src={`/training-api/runtime/frame.jpg?t=${status.runtime.timestamp}`} alt="Live YOLO labware detections"/> : <div className="detection-placeholder"><Cpu size={30}/><span>{status?.runtime.running ? 'Connecting to live camera…' : status?.training ? 'Training on your GPU' : chosen ? 'Connect OBSBOT by USB, then Run detection' : 'Load a saved model to begin'}</span></div>}
 
         {status?.runtime.error && <p role="alert" className="training-error">{status.runtime.error}</p>}
 

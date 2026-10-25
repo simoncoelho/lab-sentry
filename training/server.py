@@ -39,7 +39,7 @@ from fastapi.responses import JSONResponse
 
 ROOT=Path(__file__).resolve().parent
 
-DEFAULT=Path(os.environ.get('LAB_SENTRY_DATASET',str(Path.home()/'Downloads/lab-sentry-fixed-deck-2026-10-24/dataset')))
+DEFAULT=Path(os.environ.get('LAB_SENTRY_DATASET',str(ROOT.parent/'bundled/deck/data')))
 
 REFERENCE=DEFAULT.parent/'calibration-fixed.jpg'
 
@@ -52,6 +52,7 @@ if selection_file.exists():
     try:selected_dataset=Path(json.loads(selection_file.read_text())['dataset'])
 
     except (ValueError,KeyError):pass
+if not selected_dataset.is_dir():selected_dataset=DEFAULT
 
 audit_cache={}
 
@@ -60,6 +61,8 @@ audit_cache={}
 def dataset_report():
 
     key=str(selected_dataset)
+    if selected_dataset==ROOT.parent/'bundled/deck/data' and (DEFAULT/'audit.json').is_file():
+        return {**json.loads((DEFAULT/'audit.json').read_text()),'inferenceOnly':True}
 
     if key not in audit_cache:audit_cache[key]=audit(selected_dataset)[2]
 
@@ -85,11 +88,15 @@ def runs():
 
     result=[]
 
-    for file in (ROOT/'runs').glob('*/status.json'):
+    for file in [*(ROOT/'runs').glob('*/status.json'), *(ROOT.parent/'bundled').glob('*/status.json')]:
 
         try:
 
             item=json.loads(file.read_text(encoding='utf8'))
+            if set(item.get('models',{})) != {'labware','slots'} and item.get('state')=='complete':continue
+            for model in item.get('models',{}).values():
+                path=Path(model['weights'])
+                if not path.is_absolute():model['weights']=str((file.parent/path).resolve())
 
             if item.get('pid') and item['state'] in ('preparing','training') and not psutil.pid_exists(item['pid']):
 
@@ -101,7 +108,7 @@ def runs():
 
             result.append(item)
 
-        except (OSError,ValueError):pass
+        except (OSError,ValueError,KeyError,TypeError):pass
 
     return sorted(result,key=lambda s:s['started'],reverse=True)
 
@@ -133,7 +140,14 @@ def status():
 
     except Exception as e: report={'error':str(e)}
 
-    return {'dataset':report,'runs':runs(),'training':training_active(),'runtime':runtime.snapshot()}
+    import torch
+    from inference_device import inference_device
+    return {'dataset':report,'runs':runs(),'training':training_active(),'runtime':runtime.snapshot(),
+            'capabilities':{'training':torch.cuda.is_available(),'device':str(inference_device())}}
+
+@app.get('/starter-workspace')
+def starter_workspace():
+    return json.loads((ROOT.parent/'bundled/deck/workspace.json').read_text(encoding='utf8'))
 
 
 
@@ -197,6 +211,23 @@ def completed_run(identifier):
 
     return found
 
+def model_folder(run):
+    folder=Path(run['models']['labware']['weights']).resolve().parents[2]
+    if not any(folder.is_relative_to(base.resolve()) for base in (ROOT/'runs',ROOT.parent/'bundled')):
+        raise HTTPException(400,'Model weights missing or unsafe')
+    return folder
+
+def model_reference(folder, manifest):
+    reference=folder/'calibration-fixed.jpg'
+    if reference.is_file():return reference
+    expected=json.loads((DEFAULT/'manifest.json').read_text(encoding='utf8'))['runs'][0]['context']
+    for run in manifest['runs']:
+        actual=run['context']
+        if actual['workspace']!=expected['workspace'] or actual['view']!=expected['view']:
+            raise ValueError('This model needs a matching real-camera reference for its workspace calibration')
+    if not REFERENCE.is_file():raise ValueError('Matching real-camera reference is missing')
+    return REFERENCE
+
 
 
 @app.post('/models/{identifier}/save')
@@ -209,7 +240,7 @@ async def save_model(identifier:str,request:Request):
 
     if not isinstance(name,str) or not 1<=len(name.strip())<=80:raise HTTPException(400,'Name must be 1–80 characters')
 
-    path=ROOT/'runs'/run['id']/'model.json'
+    path=model_folder(run)/'model.json'
 
     temporary=path.with_suffix('.tmp')
 
@@ -223,13 +254,17 @@ async def save_model(identifier:str,request:Request):
 
 def download_model(identifier:str):
 
-    run=completed_run(identifier);folder=(ROOT/'runs'/run['id']).resolve()
+    run=completed_run(identifier);folder=model_folder(run)
 
     output=io.BytesIO()
 
     with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED) as archive:
 
-        archive.writestr('model.json',json.dumps(run,indent=2))
+        portable=json.loads(json.dumps(run))
+        portable.pop('pid',None)
+        for task,model in portable['models'].items():model['weights']=f'{task}/weights/best.pt'
+        archive.writestr('status.json',json.dumps(portable,indent=2))
+        archive.writestr('model.json',json.dumps({'name':run.get('name',run['id'])}))
 
         for task,model in run['models'].items():
 
@@ -237,11 +272,16 @@ def download_model(identifier:str):
 
             if not path.is_relative_to(folder) or not path.is_file():raise HTTPException(400,'Model weights missing or unsafe')
 
-            archive.write(path,f'{task}/best.pt')
+            archive.write(path,f'{task}/weights/best.pt')
 
         for relative in ('data/manifest.json','data/audit.json'):
 
             if (folder/relative).is_file():archive.write(folder/relative,relative)
+        manifest=json.loads((folder/'data/manifest.json').read_text())
+        try:reference=model_reference(folder,manifest)
+        except (ValueError,KeyError,OSError) as error:raise HTTPException(400,str(error))
+        archive.write(reference,'calibration-fixed.jpg')
+        archive.writestr('workspace.json',json.dumps(manifest['runs'][0]['context'],indent=2))
 
     output.seek(0)
 
@@ -254,6 +294,8 @@ def download_model(identifier:str):
 async def train(request:Request):
 
     global worker
+    import torch
+    if not torch.cuda.is_available():raise HTTPException(409,'Training requires an NVIDIA GPU. CPU inference is available: select a saved model and Run detection.')
 
     body=await request.json();epochs=body.get('epochs',100)
 
@@ -313,29 +355,19 @@ async def start(request:Request):
 
     try:
 
-        initial=json.loads((DEFAULT/'manifest.json').read_text(encoding='utf8'))
-
-        trained=json.loads((Path(complete[0]['models']['labware']['weights']).parents[2]/'data/manifest.json').read_text(encoding='utf8'))
-
-        expected=initial['runs'][0]['context']
-
-        for run in trained['runs']:
-
-            actual=run['context']
-
-            if actual['workspace']!=expected['workspace'] or actual['view']!=expected['view']:
-
-                raise ValueError('This model needs a matching real-camera reference for its workspace calibration')
+        folder=Path(complete[0]['models']['labware']['weights']).parents[2]
+        trained=json.loads((folder/'data/manifest.json').read_text(encoding='utf8'))
+        reference=model_reference(folder,trained)
 
         if len({json.dumps(f['cameraMatrix']) for f in trained['frames']})!=1:
 
             raise ValueError('Fixed-view detection requires a fixed-camera dataset')
 
-        if not REFERENCE.is_file():raise ValueError('Matching real-camera reference is missing')
+        if not reference.is_file():raise ValueError('Matching real-camera reference is missing')
 
     except (ValueError,KeyError,OSError) as error:raise HTTPException(400,str(error))
 
-    try:runtime.start(complete[0],REFERENCE,restore_ptz=body.get('restorePtz',True))
+    try:runtime.start(complete[0],reference,restore_ptz=body.get('restorePtz',True))
 
     except ValueError as e:raise HTTPException(409,str(e))
 
