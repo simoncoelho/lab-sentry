@@ -3,6 +3,16 @@ import { createWorkspace } from "./state";
 import { matchesSaved, parseWorkspace, snapshot } from "./workspace-file";
 const view = { acrylicVisible: false, grid: true };
 describe("workspace handoff", () => {
+  it("persists the fitted lens and marks subsequent lens edits unsaved", () => {
+    const workspace = createWorkspace();
+    const lens = { ...view, horizontalFov: 63.3 };
+    const saved = snapshot("Calibrated Flex", workspace, lens);
+    expect(parseWorkspace(JSON.stringify(saved)).view.horizontalFov).toBe(63.3);
+    expect(matchesSaved(saved, saved.name, workspace, { ...lens, horizontalFov: 70 })).toBe(false);
+    for (const horizontalFov of [0, 180, NaN]) {
+      expect(() => parseWorkspace(JSON.stringify({ ...saved, view: { ...view, horizontalFov } }))).toThrow();
+    }
+  });
   it("round-trips removed devices, visibility, full poses and joint positions", () => {
     const workspace = createWorkspace();
     workspace.ot2.present = false; workspace.flex.visible = false;

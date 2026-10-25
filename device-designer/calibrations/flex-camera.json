@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-24",
+  "device": "OBSBOT Tiny SE StreamCamera",
+  "model": "obsbot_tiny_2",
+  "method": "Manual deck landmark correspondence; nonlinear pinhole pose fit",
+  "imageSize": [640, 360],
+  "horizontalFovDegrees": 63.3,
+  "cameraBaseWorldPose": {
+    "x": -0.9752,
+    "y": -0.2671,
+    "z": 0.305,
+    "roll": -142.5,
+    "pitch": 75.6,
+    "yaw": -109.3
+  },
+  "flexWorldOrigin": [-0.55, 0, 0],
+  "fitHardwareAnglesDegrees": { "pan": 3, "tilt": 85 },
+  "validationHardwareAnglesDegrees": { "pan": 6, "tilt": 84 },
+  "fitRmsPerImageCoordinatePixels": 3.56,
+  "landmarks": [
+    { "name": "C1 recess front-left", "flexLocalMeters": [-0.1925, -0.1135, 0.169], "imagePixels": [282, 300] },
+    { "name": "C1 recess front-right", "flexLocalMeters": [-0.1615, -0.1135, 0.169], "imagePixels": [327, 274] },
+    { "name": "C1 recess rear-right", "flexLocalMeters": [-0.1615, -0.0845, 0.169], "imagePixels": [274, 256] },
+    { "name": "C1 recess rear-left", "flexLocalMeters": [-0.1925, -0.0845, 0.169], "imagePixels": [230, 275] },
+    { "name": "C2 recess center", "flexLocalMeters": [-0.013, -0.099, 0.169], "imagePixels": [411, 208] },
+    { "name": "D2 recess center", "flexLocalMeters": [-0.013, -0.206, 0.169], "imagePixels": [552, 246] },
+    { "name": "D3 recess center", "flexLocalMeters": [0.151, -0.206, 0.169], "imagePixels": [591, 194] }
+  ],
+  "limitations": [
+    "Approximate fit to manually selected coplanar landmarks in reconstructed geometry; fit residual is not an independent accuracy measurement.",
+    "Principal point assumed at image center; lens distortion not estimated.",
+    "Current labware differs from the model; visual fixture geometry is approximate.",
+    "Small-angle pan validation only; full gimbal range and mount-axis calibration remain unverified.",
+    "Recalibrate if mounting, digital zoom, stream crop, or image orientation changes."
+  ]
+}

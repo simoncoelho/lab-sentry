@@ -372,7 +372,11 @@ export class InstrumentScene {
         state.present && state.visible && (!isolated || id === selected);
       entry.group.position.set(state.pose.x, state.pose.z, -state.pose.y);
       entry.group.quaternion.copy(sceneOrientation(state.pose));
-      if (entry.robot) entry.robot.setJointValues(state.joints);
+      if (entry.robot) {
+        // Render measured Tiny SE angles even beyond reconstructed Tiny 2 limits.
+        if (id === "tiny2") for (const joint of Object.values(entry.robot.joints)) joint.ignoreLimits = true;
+        entry.robot.setJointValues(state.joints);
+      }
       if (entry.footprint) entry.footprint.visible = id === selected;
       entry.label.classList.toggle("selected", id === selected);
     }
@@ -521,6 +525,41 @@ export class InstrumentScene {
   setExpectedLens(horizontalFov: number, aspect: number) {
     if (this.expected) { this.expected.horizontalFov = horizontalFov; this.expected.aspect = aspect; }
   }
+  captureAlignment() {
+    this.renderExpectedView();
+    const view = this.expected, tiny = this.entries.get("tiny2"), flex = this.entries.get("flex");
+    if (!view || !tiny?.robot || !flex?.robot || !this.workspace) throw new Error("Load Flex and Tiny 2 first.");
+    view.camera.updateMatrixWorld(true);
+    const camera = view.camera.clone(), initial = camera.matrixWorld.clone();
+    const cameraToBase = initial.clone().invert().multiply(tiny.group.matrixWorld);
+    const oldPose = { ...this.workspace.tiny2.pose };
+    const source = view.renderer.domElement, canvas = document.createElement("canvas");
+    canvas.width = 1280; canvas.height = Math.round(1280 / view.aspect);
+    const width = Math.min(source.width, source.height * view.aspect), height = width / view.aspect;
+    canvas.getContext("2d")!.drawImage(source, (source.width - width) / 2, (source.height - height) / 2, width, height, 0, 0, canvas.width, canvas.height);
+    const meshes: THREE.Object3D[] = [];
+    flex.robot.traverse(object => {
+      if (!(object instanceof THREE.Mesh)) return;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      if (materials.some(m => m.name === "polycarbonate")) return;
+      for (let parent: THREE.Object3D | null = object; parent && parent !== flex.group; parent = parent.parent) if (!parent.visible) return;
+      meshes.push(object);
+    });
+    return {
+      canvas, initial,
+      pick: (x: number, y: number): [number, number, number] | null => {
+        const ray = new THREE.Raycaster();
+        ray.setFromCamera(new THREE.Vector2(x * 2 - 1, 1 - y * 2), camera);
+        const hit = ray.intersectObjects(meshes, false)[0];
+        return hit ? hit.point.toArray() : null;
+      },
+      pose: (fitted: THREE.Matrix4) => {
+        const base = fitted.clone().multiply(cameraToBase), position = new THREE.Vector3(), quaternion = new THREE.Quaternion();
+        base.decompose(position, quaternion, new THREE.Vector3());
+        return rotatedPose({ ...oldPose, x: position.x, y: -position.z, z: position.y }, quaternion);
+      },
+    };
+  }
   detachExpectedView() {
     if (!this.expected) return;
     this.expected.renderer.dispose(); this.expected.renderer.domElement.remove(); this.expected = undefined;
@@ -538,6 +577,16 @@ export class InstrumentScene {
     const width = Math.max(1, view.host.clientWidth), height = Math.max(1, view.host.clientHeight);
     const size = view.renderer.getSize(new THREE.Vector2());
     if (size.x !== width || size.y !== height) view.renderer.setSize(width, height);
+    // Letterbox the modeled image just like the live video, including when
+    // the comparison fills a viewport with a different aspect ratio.
+    const imageWidth = Math.min(width, height * view.aspect);
+    const imageHeight = imageWidth / view.aspect;
+    const left = (width - imageWidth) / 2, bottom = (height - imageHeight) / 2;
+    view.renderer.setScissorTest(false);
+    view.renderer.clear();
+    view.renderer.setViewport(left, bottom, imageWidth, imageHeight);
+    view.renderer.setScissor(left, bottom, imageWidth, imageHeight);
+    view.renderer.setScissorTest(true);
     // Scene visibility is an editing aid. The expected camera sees all present
     // instruments and acrylic, with no gizmos, grid, footprint or self geometry.
     const restore: [THREE.Object3D, boolean][] = [];

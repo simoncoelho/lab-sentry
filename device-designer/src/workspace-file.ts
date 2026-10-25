@@ -6,7 +6,7 @@ export type SavedWorkspace = {
   name: string;
   savedAt: string;
   workspace: Workspace;
-  view: { acrylicVisible: boolean; grid: boolean };
+  view: { acrylicVisible: boolean; grid: boolean; horizontalFov?: number };
 };
 export function snapshot(name: string, workspace: Workspace, view: SavedWorkspace["view"]): SavedWorkspace {
   return { version: 1, name: name.trim() || "Untitled workspace", savedAt: new Date().toISOString(), workspace: structuredClone(workspace), view: { ...view } };
@@ -16,6 +16,7 @@ export function parseWorkspace(raw: string): SavedWorkspace {
   if (data?.version !== 1 || typeof data.name !== "string" || !data.name.trim() ||
       typeof data.savedAt !== "string" || !Number.isFinite(Date.parse(data.savedAt)) ||
       typeof data.view?.acrylicVisible !== "boolean" || typeof data.view?.grid !== "boolean") throw new Error("Invalid workspace file.");
+  if (data.view.horizontalFov !== undefined && (!Number.isFinite(data.view.horizontalFov) || data.view.horizontalFov < 30 || data.view.horizontalFov > 120)) throw new Error("Invalid camera field of view.");
   for (const { id } of instruments) {
     const state = data.workspace?.[id];
     if (!state || typeof state.present !== "boolean" || typeof state.visible !== "boolean" ||

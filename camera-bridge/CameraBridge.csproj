@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ObsbotRoot Condition="'$(ObsbotRoot)' == ''">../../obsbot-control</ObsbotRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(ObsbotRoot)/src/Obsbot.Control/Obsbot.Control.csproj" />
+    <ProjectReference Include="$(ObsbotRoot)/src/Obsbot.Motion/Obsbot.Motion.csproj" />
+  </ItemGroup>
+</Project>

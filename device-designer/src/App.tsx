@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { STORAGE_KEY, snapshot, parseWorkspace, matchesSaved, type SavedWorkspace } from "./workspace-file";
 import { CameraComparison } from "./CameraComparison";
+import { CameraHardwareControls } from "./CameraHardwareControls";
 import { InstrumentScene, type ModelInfo } from "./scene";
 import {
   clamp,
@@ -177,6 +178,7 @@ export default function App() {
   const [restored] = useState(restoreSaved);
   const [saved, setSaved] = useState<SavedWorkspace | null>(restored.saved);
   const [workspaceName, setWorkspaceName] = useState(restored.saved?.name || "My lab workspace");
+  const [horizontalFov, setHorizontalFov] = useState(restored.saved?.view.horizontalFov ?? 70);
   const [phase, setPhase] = useState<"setup" | "calibration">("setup");
   const [saveError, setSaveError] = useState(restored.error);
   const [reference, setReference] = useState<{ url: string; name: string } | null>(null);
@@ -334,10 +336,10 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [selected, help, state.present]);
 
-  const clean = matchesSaved(saved, workspaceName, workspace, { acrylicVisible, grid });
+  const clean = matchesSaved(saved, workspaceName, workspace, { acrylicVisible, grid, horizontalFov });
   const setupReady = activeInstruments.length > 0 && activeInstruments.every(i => loads[i.id]?.info) && !sceneError;
   function saveSetup(continueToCalibration = false) {
-    const next = snapshot(workspaceName, workspace, { acrylicVisible, grid });
+    const next = snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov });
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       setSaved(next);
@@ -347,10 +349,11 @@ export default function App() {
         setWorkspace(structuredClone(next.workspace));
         setMounting(false); setIsolated(false); setTab("joints"); setPhase("calibration");
       }
-    } catch { setSaveError("Saving failed. Your setup is still here. Export it as a file, or free browser storage and try again."); }
+      return true;
+    } catch { setSaveError("Saving failed. Your setup is still here. Export it as a file, or free browser storage and try again."); return false; }
   }
   function exportSetup() {
-    const next = snapshot(workspaceName, workspace, { acrylicVisible, grid });
+    const next = snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov });
     const url = URL.createObjectURL(new Blob([JSON.stringify(next, null, 2)], { type: "application/json" }));
     const link = document.createElement("a"); link.href = url;
     link.download = `${next.name.replace(/[^a-z0-9_-]+/gi, "-")}.workspace.json`;
@@ -442,7 +445,7 @@ export default function App() {
               try {
                 if (file.size > 1000000) throw new Error("Workspace file is too large.");
                 const next = parseWorkspace(await file.text());
-                setWorkspace(structuredClone(next.workspace)); setWorkspaceName(next.name); setAcrylicVisible(next.view.acrylicVisible); setGrid(next.view.grid);
+                setWorkspace(structuredClone(next.workspace)); setWorkspaceName(next.name); setAcrylicVisible(next.view.acrylicVisible); setGrid(next.view.grid); setHorizontalFov(next.view.horizontalFov ?? 70);
                 setMounting(false); setIsolated(false); setSaveError("");
                 setSelected(instruments.find(i => next.workspace[i.id].present)?.id || "flex");
               } catch { setSaveError("Could not open that workspace file. Your current setup has been kept."); }
@@ -539,13 +542,26 @@ export default function App() {
         <div className="library-intro"><h1>{saved?.name}</h1><p>Setup complete. This configuration is the starting point for camera calibration.</p></div>
         <div className="calibration-summary">
           {activeInstruments.map(i => <div key={i.id}><InstrumentGlyph id={i.id}/><span>{i.name}<small>{i.id === "tiny2" ? "Camera to calibrate" : "Reference instrument"}</small></span><Check size={13}/></div>)}
-          <p>Device placement and joints are locked in this phase. Return to setup to change them.</p>
+          <p>Camera controls adjust pan/tilt and mount alignment in the comparison. Return to setup to change other devices.</p>
           <button onClick={exportSetup}>Export saved setup</button>
         </div>
       </aside>}
 
       <main className="viewport">
-        {phase === "calibration" && <CameraComparison scene={scene.current} />}
+        {phase === "calibration" && <CameraComparison pose={workspace.tiny2.pose} onPose={pose => setWorkspace(previous => ({ ...previous, tiny2: { ...previous.tiny2, pose } }))} onAngles={(pan, tilt) => setWorkspace(previous => ({ ...previous, tiny2: { ...previous.tiny2, joints: { ...previous.tiny2.joints, obsbot_pan_joint: pan * Math.PI / 180, obsbot_tilt_joint: tilt * Math.PI / 180 } } }))} onSave={() => saveSetup()} fov={horizontalFov} setFov={setHorizontalFov} scene={scene.current} cameraControls={<>
+          <CameraHardwareControls onReading={(pan, tilt) => setWorkspace(previous => {
+            const joints = { ...previous.tiny2.joints, obsbot_pan_joint: pan * Math.PI / 180, obsbot_tilt_joint: tilt * Math.PI / 180 };
+            if (previous.tiny2.joints.obsbot_pan_joint === joints.obsbot_pan_joint && previous.tiny2.joints.obsbot_tilt_joint === joints.obsbot_tilt_joint) return previous;
+            return { ...previous, tiny2: { ...previous.tiny2, joints } };
+          })}/>
+          <section className="camera-mount-fields"><h4>Mount position & rotation</h4>
+            {(["x", "y", "z", "roll", "pitch", "yaw"] as const).map(axis => {
+              const position = axis === "x" || axis === "y" || axis === "z";
+              return <div className="position-row" key={axis}><label>{axis.toUpperCase()}</label><Numeric label={`Camera ${axis}`} unit={position ? "mm" : "°"} value={workspace.tiny2.pose[axis] * (position ? 1000 : 1)} min={position ? (axis === "z" ? 0 : -3000) : -180} max={position ? 3000 : 180} step={0.1} onChange={value => setWorkspace(previous => ({ ...previous, tiny2: { ...previous.tiny2, pose: { ...previous.tiny2.pose, [axis]: value / (position ? 1000 : 1) } } }))}/></div>;
+            })}
+          </section>
+          <div className="camera-save"><span role="status">{clean ? "Workspace saved" : "Unsaved camera changes"}</span><button className="primary-action" disabled={clean} onClick={() => saveSetup()}>Save workspace</button>{saveError && <p role="alert">{saveError}</p>}</div>
+        </>} />}
         <div className="viewport-toolbar">
           <div className="breadcrumb">
             <Box size={14} />
@@ -688,7 +704,7 @@ export default function App() {
             }} /></label>
             {imageError && <p role="alert">{imageError}</p>}
             {reference && <figure><img src={reference.url} alt="Camera calibration reference" onError={() => { setImageError("This image could not be decoded. Choose another image."); setReference(null); }}/><figcaption>{reference.name}</figcaption><button onClick={() => setReference(null)}>Remove reference image</button></figure>}
-            <div className="calibration-next"><span className="small-label">NEXT: VIEW ALIGNMENT</span><p>The expected view uses saved mount position and pan/tilt. It does not move the physical camera. Match the hardware pose, then tune field of view. Calibration has not been solved yet.</p></div>
+            <div className="calibration-next"><span className="small-label">NEXT: VIEW ALIGNMENT</span><p>Link camera controls to synchronize reported pan/tilt with the model. Match the mount pose, then tune field of view. Calibration has not been solved yet.</p></div>
           </div>
         ) : state.present ? (
           <>
@@ -981,7 +997,7 @@ export default function App() {
           <span className={`status-dot ${ready === 3 ? "ready" : ""}`} />
           {ready === 3 ? "Workspace ready" : `${ready}/3 models loaded`}
         </span>
-        <span>{phase === "setup" ? "Scene preview · no hardware connection" : "Camera comparison · no motion control"}</span>
+        <span>{phase === "setup" ? "Scene preview · no hardware connection" : "Camera comparison · linked pan/tilt controls"}</span>
         <span>
           {
             instruments.filter(
@@ -992,7 +1008,7 @@ export default function App() {
             ).length
           }{" "}
           visible<span className="status-divider">/</span>
-          {phase === "calibration" ? "Setup locked" : `${state.present ? (info?.joints.length ?? "–") : 0} active controls`}
+          {phase === "calibration" ? "Camera calibration" : `${state.present ? (info?.joints.length ?? "–") : 0} active controls`}
         </span>
       </footer>
       {help && (
