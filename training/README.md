@@ -43,3 +43,17 @@ The current library supports tip racks, microplates and reservoirs. Clear-labwar
 Camera effects in Generate dataset are saved per run. Noise uses a deterministic seed per image; JPEG artifacts and downsampling are baked into losslessly packaged PNGs. The preview and training upload use the same processing function. Originals remain in browser storage. Match stream resolution captures a fresh reference from running detection and uses its dimensions; it does not estimate sensor noise, JPEG quality, lighting, or geometry. Keep validation clean unless deliberately measuring a separate degraded validation set. Source-image hashes prevent effects from hiding cross-split duplicates.
 
 Use generated dataset uploads the saved processed versions. Additional random camera effects during training are opt-in in the UI; the CLI retains its augmentation default. Each completed model remains on disk and appears in the model selector. Save name persists a friendly name, and Download model bundles both detectors, calibration manifest and metrics. Stop detection to select and run an older model.
+
+## Live state REST API
+
+The final **Serve** workflow step displays the Flex model with live 3D labware and the live JSON response. Start a saved detector in **Train & run**, then open **Serve**. Detection continues without the browser while the Python service is running.
+
+`GET http://127.0.0.1:5102/api/v1/deck-state`
+
+This read-only, loopback-only endpoint returns `schemaVersion: 1`, `instrument`, `modelId`, `status`, `fresh`, UTC `observedAt`, `ageMs`, `alignment`, `error`, and all 12 `slots`. Each slot has `slot`, `state`, `labware`, `confidence` (0–1), and `reason`. States include `empty`, `occupied`, `obscured`, and `unknown`. No observation is inferred from a missing detection.
+
+`status` is `live`, `stale`, `stopped`, or `error`. Responses remain HTTP 200 when the detector is stopped or stale so clients can inspect its state. Observations older than five seconds, stopped detection, or runtime errors return every slot as unknown, with null labware and zero confidence. A fresh frame can still have unknown slots due to uncertain geometry or recognition. Responses have `Cache-Control: no-store`. Poll at approximately 1 Hz; reads do not start training or move the camera.
+
+Example: `curl http://127.0.0.1:5102/api/v1/deck-state`
+
+The live view uses lightweight gray silhouettes for detected Tip rack, Microplate, and Reservoir classes; detailed assets remain in dataset generation. The UI polls sequentially with a 100 ms interval after each response and renders independently at display cadence. Detection itself currently runs at approximately 4 Hz, so rendering does not imply new inference on every display frame. It does not claim to identify an exact SKU. Empty slots stay clear; unknown/obscured slots show subtle labels and no inferred labware. The upper enclosure is faded by default and can be restored with Show enclosure.

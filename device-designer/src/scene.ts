@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import { deckSlots } from "./classifier";
+import { liveLabware } from "./live-labware";
+import { disposeAsset } from "./dataset-assets";
 import { inferSlotState, type SlotState } from "./deck-state";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { TransformControls } from "three/addons/controls/TransformControls.js";
@@ -536,6 +538,73 @@ export class InstrumentScene {
       this.controls.target.copy(center);
       this.goal = undefined;
     } else this.goal = { target: center, position };
+  }
+
+  attachStateView(host: HTMLDivElement) {
+    const flex = this.entries.get('flex');
+    if (!flex?.robot) throw new Error('Flex model is still loading.');
+    const scene = new THREE.Scene(); scene.background = new THREE.Color(0x10151d);
+    const model = flex.group.clone(true); model.visible = true; scene.add(model);
+    // The live-state view owns its overlays, while sharing only immutable model geometry.
+    scene.add(new THREE.HemisphereLight(0xdce9ff, 0x455064, 2.5));
+    const light = new THREE.DirectionalLight(0xffffff, 3); light.position.set(2,4,3); scene.add(light);
+    const renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.domElement.setAttribute('aria-label','Live Flex deck state. Drag to orbit; scroll to zoom.');
+    host.appendChild(renderer.domElement);
+    const box = new THREE.Box3().setFromObject(model), center = box.getCenter(new THREE.Vector3());
+    const size = Math.max(...box.getSize(new THREE.Vector3()).toArray());
+    const camera = new THREE.PerspectiveCamera(38,1,.001,100);
+    camera.position.copy(center).add(new THREE.Vector3(size*.8,size*1.5,size*1.3));
+    const deckCenter=new THREE.Vector3(); let deckCount=0;
+    model.updateMatrixWorld(true);
+    for(const slot of deckSlots){const link=model.getObjectByName(`slot_${slot.toLowerCase()}`);if(link){deckCenter.add(link.getWorldPosition(new THREE.Vector3()));deckCount++;}}
+    if(deckCount)deckCenter.divideScalar(deckCount);else deckCenter.copy(center);
+    camera.position.copy(deckCenter).add(new THREE.Vector3(size*.48,size*1.05,size*.75));
+    const controls = new OrbitControls(camera,renderer.domElement); controls.target.copy(deckCenter); controls.enableDamping=true;
+    const faded: {mesh:THREE.Mesh;original:THREE.Material|THREE.Material[];ghost:THREE.Material|THREE.Material[]}[]=[];
+    model.traverse(object=>{if(!(object instanceof THREE.Mesh))return;
+      const bounds=new THREE.Box3().setFromObject(object);
+      if(bounds.getCenter(new THREE.Vector3()).y<=deckCenter.y+.12)return;
+      const ghost=(material:THREE.Material)=>{const copy=material.clone();copy.transparent=true;copy.opacity=.10;copy.depthWrite=false;return copy;};
+      const original=object.material, replacement=Array.isArray(original)?original.map(ghost):ghost(original);
+      faded.push({mesh:object,original,ghost:replacement});object.material=replacement;
+    });
+    type Observation = {slot:string;state:string;labware?:string|null;confidence?:number};
+    const labels = new Map<string, { link: THREE.Object3D; mesh: THREE.Mesh; canvas: HTMLCanvasElement; texture: THREE.CanvasTexture; text: string; object?: THREE.Group; assetId?: string }>();
+    const templates = new Map<string, THREE.Group>();
+    for(const kind of ['tiprack','plate','reservoir'] as const)templates.set(kind,liveLabware(kind));
+    const assetIds: Record<string,string> = { 'tip rack':'tiprack', microplate:'plate', reservoir:'reservoir' };
+    let frame=0, disposed=false;
+    for (const slot of deckSlots) {
+      const link = model.getObjectByName(`slot_${slot.toLowerCase()}`); if (!link) continue;
+      const canvas=document.createElement('canvas'); canvas.width=512; canvas.height=96;
+      const texture=new THREE.CanvasTexture(canvas); texture.colorSpace=THREE.SRGBColorSpace;
+      const mesh=new THREE.Mesh(new THREE.PlaneGeometry(.135,.025),new THREE.MeshBasicMaterial({map:texture,transparent:true,side:THREE.DoubleSide,depthTest:false}));
+      mesh.position.set(0,-.045,.009); mesh.renderOrder=100; link.add(mesh); labels.set(slot,{link,mesh,canvas,texture,text:''});
+    }
+    const update = (slots: Observation[]) => {
+      for(const [slot,label] of labels){
+        const value=slots.find(s=>s.slot===slot), state=value?.state ?? 'unknown';
+        const assetId=state==='occupied' ? assetIds[value?.labware?.toLowerCase() ?? ''] : undefined;
+        if(label.assetId!==assetId){ label.object?.removeFromParent();label.object=undefined;label.assetId=assetId; }
+        const template=assetId ? templates.get(assetId) : undefined;
+        if(template && !label.object){label.object=template.clone(true);label.object.position.z=.003;label.link.add(label.object);}
+        const text=`${state}:${value?.labware ?? ''}`; if(text===label.text)continue; label.text=text;
+        const ctx=label.canvas.getContext('2d')!; ctx.clearRect(0,0,512,96);
+        ctx.fillStyle=state==='empty'?'#10151d99':'#10151ddd';ctx.beginPath();ctx.roundRect(0,0,512,96,18);ctx.fill();
+        ctx.textAlign='center';ctx.fillStyle=state==='unknown'||state==='obscured'?'#aab4c4':'#edf2f8';ctx.font='32px sans-serif';
+        const caption=state==='empty'?slot:state==='occupied'?`${slot} · ${value?.labware ?? 'Occupied'}`:`${slot} · ${state}`;
+        ctx.fillText(caption,256,60,484); label.texture.needsUpdate=true;
+      }
+    };
+    let lastWidth=0,lastHeight=0;
+    const render=() => { if(disposed)return; const width=host.clientWidth,height=host.clientHeight; if(width && height){if(width!==lastWidth||height!==lastHeight){renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();lastWidth=width;lastHeight=height;}controls.update();renderer.render(scene,camera);} frame=requestAnimationFrame(render); }; render();
+    return {
+      update,
+      setEnclosure: (visible:boolean) => { for(const item of faded)item.mesh.material=visible?item.original:item.ghost; },
+      dispose: () => { disposed=true;cancelAnimationFrame(frame);controls.dispose();renderer.dispose();renderer.domElement.remove();for(const label of labels.values()){label.object?.removeFromParent();label.texture.dispose();label.mesh.geometry.dispose();(label.mesh.material as THREE.Material).dispose();}templates.forEach(disposeAsset);for(const item of faded)for(const material of Array.isArray(item.ghost)?item.ghost:[item.ghost])material.dispose(); }
+    };
   }
 
   attachExpectedView(host: HTMLDivElement) {

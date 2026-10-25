@@ -31,6 +31,8 @@ from fastapi.responses import Response
 from dataset import audit
 
 from runtime import Runtime
+from state_api import deck_state
+from fastapi.responses import JSONResponse
 
 
 
@@ -339,6 +341,10 @@ async def start(request:Request):
     return {'started':True}
 
 
+
+@app.get('/api/v1/deck-state')
+def public_deck_state():
+    return JSONResponse(deck_state(runtime.snapshot()), headers={'Cache-Control':'no-store'})
 
 @app.post('/runtime/stop')
 

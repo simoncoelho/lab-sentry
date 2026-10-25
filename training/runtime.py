@@ -52,6 +52,23 @@ def resolve_slots(objects, observations, polygons, templates, confidence=.5):
         obj['slot']=slot
     return [result[s] for s in SLOTS]
 
+def moving_slots(previous, current, polygons):
+    """Local motion in rectified deck coordinates must not invalidate other slots."""
+    if previous is None:return set(polygons)
+    changed=cv2.absdiff(current,previous)>25
+    height,width=current.shape
+    moving=set()
+    for slot,points in polygons.items():
+        mask=np.zeros(current.shape,np.uint8)
+        cv2.fillPoly(mask,[np.int32([[x*width,y*height] for x,y in points])],1)
+        area=int(mask.sum())
+        if area and float(np.count_nonzero(changed & (mask>0)))/area>.025:moving.add(slot)
+    return moving
+
+def settle_slots(slots, last_motion, now):
+    return [dict(slot=item['slot'],state='unknown',label=None,confidence=0.,reason='motion in slot; waiting to settle')
+            if now-last_motion.get(item['slot'],-float('inf'))<.8 else item for item in slots]
+
 def alignment_quality(h, src, dst, mask):
     """Accept moderate PTZ drift only when landmarks support a stable correction."""
     corners=np.float32([[[80,60],[560,60],[560,330],[80,330]]])
@@ -114,7 +131,7 @@ class Runtime:
                 requests.post('http://127.0.0.1:5101/connect',json={},timeout=8).raise_for_status()
                 if restore_ptz:
                     requests.post('http://127.0.0.1:5101/target',json={k:ptz[k] for k in ['pan','tilt','zoom']},timeout=8).raise_for_status()
-                buffer=b'';last=0;started=time.time();alignment={'ok':False,'reason':'settling camera'};previous_gray=None;last_change=started
+                buffer=b'';last=0;started=time.time();alignment={'ok':False,'reason':'settling camera'};previous_gray=None;last_motion={}
                 for chunk in stream.iter_content(16384):
                     if self.stop_event.is_set():break
                     buffer+=chunk; a=buffer.find(b'\xff\xd8');b=buffer.find(b'\xff\xd9',a+2)
@@ -138,9 +155,11 @@ class Runtime:
                         # Correct supported PTZ drift before using fixed-view geometry.
                         inference_image=cv2.warpPerspective(cv2.resize(image,(640,360)),np.linalg.inv(view_transform),(640,360)) if view_transform is not None else image
                         observed_gray=cv2.GaussianBlur(cv2.cvtColor(cv2.resize(inference_image,(640,360)),cv2.COLOR_BGR2GRAY),(5,5),0)
-                        if previous_gray is None or float(np.mean(cv2.absdiff(observed_gray,previous_gray)>25))>.025:last_change=last
-                        previous_gray=observed_gray
-                        if last-last_change<.8:alignment.update(ok=False,reason='scene moving; waiting to settle')
+                        if alignment['ok']:
+                            for slot in moving_slots(previous_gray,observed_gray,polygons):last_motion[slot]=last
+                            previous_gray=observed_gray
+                        else:
+                            previous_gray=None
                         detections={}
                         for task,model in models.items():
                             pred=model.predict(inference_image,imgsz=960,conf=.25,device=0,verbose=False)[0]
@@ -155,6 +174,11 @@ class Runtime:
                             slots=resolve_slots(detections['labware'],observations,visible_slots,templates) if alignment['ok'] else unknown(alignment['reason'])
                         else:
                             slots=unknown(alignment['reason'])
+                        if alignment['ok']:
+                            slots=settle_slots(slots,last_motion,last)
+                            moving={item['slot'] for item in slots if item['reason']=='motion in slot; waiting to settle'}
+                            for obj in detections['labware']:
+                                if obj.get('slot') in moving:obj.pop('slot',None)
                         height,width=image.shape[:2]
                         for obj in detections['labware']:
                             box=obj['box']

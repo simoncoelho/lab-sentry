@@ -28,6 +28,7 @@ import { ClassifierDesigner } from "./ClassifierDesigner";
 import { DatasetGenerator } from "./DatasetGenerator";
 import { WorkspaceLibrary } from './WorkspaceLibrary';
 import { rememberWorkspace } from './workspace-history';
+import { ServePanel } from './ServePanel';
 import { TrainingPanel } from "./TrainingPanel";
 import { createClassifier, classifierIssues, type ClassifierDesign } from "./classifier";
 import { CameraComparison } from "./CameraComparison";
@@ -191,7 +192,7 @@ export default function App() {
   const [cameraPtz, setCameraPtz] = useState<SavedWorkspace['view']['cameraPtz']>(restored.saved?.view.cameraPtz);
   const [lighting, setLighting] = useState<Lighting>(restored.saved?.view.lighting ?? defaultLighting);
   const [horizontalFov, setHorizontalFov] = useState(restored.saved?.view.horizontalFov ?? 70);
-  const [phase, setPhase] = useState<"setup" | "calibration" | "classifier" | "dataset" | "training">("setup");
+  const [phase, setPhase] = useState<"setup" | "calibration" | "classifier" | "dataset" | "training" | "serve">("setup");
   const [datasetProgress, setDatasetProgress] = useState({ running: false, count: 0, target: 0 });
   const [classifier, setClassifier] = useState<ClassifierDesign | undefined>(restored.saved?.classifier);
   const [saveError, setSaveError] = useState(restored.error);
@@ -454,7 +455,7 @@ export default function App() {
         </div>
         <div className="top-actions">
           <span className="mode-tag">
-            <span /> {phase === "setup" ? "LOCAL SIMULATION" : phase === "training" ? "MODEL TRAINING & DETECTION" : phase === "dataset" ? "DATASET GENERATION" : phase === "classifier" ? "CLASSIFIER DESIGN" : "CAMERA COMPARISON"}
+            <span /> {phase === "setup" ? "LOCAL SIMULATION" : phase === "serve" ? "LIVE STATE API" : phase === "training" ? "MODEL TRAINING & DETECTION" : phase === "dataset" ? "DATASET GENERATION" : phase === "classifier" ? "CLASSIFIER DESIGN" : "CAMERA COMPARISON"}
           </span>
           <button
             className="icon-button"
@@ -478,6 +479,7 @@ export default function App() {
           <button aria-current={phase === 'dataset' ? 'step' : undefined} disabled={!setupReady || !workspace.flex.present || !workspace.tiny2.present || !classifier || !!classifierIssues(classifier).length} onClick={openDataset}><span>04</span> Generate dataset {datasetProgress.running && <small>{datasetProgress.count}/{datasetProgress.target}</small>}</button>
           <ChevronRight size={14}/>
           <button aria-current={phase === 'training' ? 'step' : undefined} disabled={!classifier} onClick={() => setPhase('training')}><span>05</span> Train & run</button>
+          <ChevronRight size={14}/><button aria-current={phase === "serve" ? "step" : undefined} onClick={() => setPhase("serve")}><span>06</span> Serve</button>
         </nav>
         <div className="workflow-save">
           <button disabled={datasetProgress.running} onClick={() => setLibraryOpen(true)}>Open saved</button>
@@ -490,6 +492,7 @@ export default function App() {
       </section>
       {libraryOpen && <WorkspaceLibrary onClose={() => setLibraryOpen(false)} onOpen={openSavedWorkspace}/>}
       {saveError && <div className="save-error" role="alert">{saveError}<button onClick={() => setSaveError("")} aria-label="Dismiss save error"><X size={13}/></button></div>}
+      {phase === "serve" && <ServePanel scene={scene.current} onDetector={() => setPhase(classifier ? "training" : "setup")}/>}
       {phase === "classifier" && classifier && <ClassifierDesigner design={classifier} onChange={setClassifier} onSave={() => saveSetup()} onExport={exportClassifier} clean={clean} workspaceName={workspaceName}/>}
       {(phase === 'dataset' || phase === 'training') && classifier && <DatasetGenerator key={workspaceRevision} initialRunId={openedRun} onOpenRun={run => openSavedWorkspace(run.context, run.id)} onProgress={setDatasetProgress} scene={scene.current} context={snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting, ...(cameraPtz ? { cameraPtz } : {}) }, classifier)}/>}
       {phase === 'training' && classifier && <TrainingPanel context={snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting, ...(cameraPtz ? { cameraPtz } : {}) }, classifier)}/>}
@@ -1061,7 +1064,7 @@ export default function App() {
           <span className={`status-dot ${ready === 3 ? "ready" : ""}`} />
           {ready === 3 ? "Workspace ready" : `${ready}/3 models loaded`}
         </span>
-        <span>{phase === "setup" ? "Scene preview · no hardware connection" : phase === "training" ? "Local GPU training · live deck detection" : phase === "dataset" ? "Synthetic data · local rendering" : phase === "classifier" ? "Classifier definition · no training started" : "Camera comparison · linked pan/tilt controls"}</span>
+        <span>{phase === "setup" ? "Scene preview · no hardware connection" : phase === "serve" ? "Local REST API · live deck state" : phase === "training" ? "Local GPU training · live deck detection" : phase === "dataset" ? "Synthetic data · local rendering" : phase === "classifier" ? "Classifier definition · no training started" : "Camera comparison · linked pan/tilt controls"}</span>
         <span>
           {
             instruments.filter(
@@ -1072,7 +1075,7 @@ export default function App() {
             ).length
           }{" "}
           visible<span className="status-divider">/</span>
-          {(phase === "classifier" || phase === "dataset" || phase === "training") ? `${classifier?.classes.length ?? 0} classes` : phase === "calibration" ? "Camera calibration" : `${state.present ? (info?.joints.length ?? "–") : 0} active controls`}
+          {(phase === "classifier" || phase === "dataset" || phase === "training" || phase === "serve") ? `${classifier?.classes.length ?? 0} classes` : phase === "calibration" ? "Camera calibration" : `${state.present ? (info?.joints.length ?? "–") : 0} active controls`}
         </span>
       </footer>
       {help && (

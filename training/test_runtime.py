@@ -1,6 +1,6 @@
 import time
 import unittest
-from runtime import Runtime, resolve_slots, unknown, alignment_quality
+from runtime import Runtime, resolve_slots, unknown, alignment_quality, moving_slots, settle_slots
 import numpy as np
 
 POLYGONS = {'A1': [[.1,.1],[.3,.1],[.3,.3],[.1,.3]], 'A2': [[.4,.1],[.6,.1],[.6,.3],[.4,.3]]}
@@ -59,5 +59,21 @@ class AlignmentTests(unittest.TestCase):
     def test_clustered_or_inaccurate_matches_cannot_relax_gate(self):
         self.assertFalse(self.check_translation(50,clustered=True)['ok'])
         self.assertFalse(self.check_translation(50,outliers=True)['ok'])
+
+class SlotMotionTests(unittest.TestCase):
+    def test_motion_is_local_to_one_slot(self):
+        previous=np.zeros((100,100),np.uint8);current=previous.copy();current[12:28,12:28]=255
+        self.assertEqual(moving_slots(previous,current,POLYGONS),{'A1'})
+
+    def test_unaffected_plate_is_preserved(self):
+        slots=[dict(slot=s,state='occupied',label='Microplate',confidence=.9,reason='detected') for s in ['A1','A2']]
+        result=settle_slots(slots,{'A1':10},10.2)
+        self.assertEqual(result[0]['state'],'unknown')
+        self.assertIs(result[1],slots[1])
+        self.assertEqual(settle_slots(slots,{'A1':10},11),slots)
+
+    def test_no_motion_does_not_clear_any_slot(self):
+        image=np.zeros((100,100),np.uint8)
+        self.assertEqual(moving_slots(image,image,POLYGONS),set())
 
 if __name__=='__main__':unittest.main()

@@ -1976,3 +1976,22 @@ svg {
 .workspace-library-row small,.workspace-library-row time { font-size:10px; color:var(--muted); }
 .workspace-library-dialog footer { border-top:1px solid var(--border); margin-top:18px; padding-top:14px; }
 .workspace-library-dialog [role=alert] { color:#f0ad9d; margin-bottom:12px; }
+.phase-serve > .library,.phase-serve > .viewport,.phase-serve > .inspector { display:none; }
+.serve-panel { grid-column:1/-1; min-height:0; overflow:auto; padding:24px 28px; background:#10151d; }
+.serve-panel > header,.serve-card > header { display:flex; justify-content:space-between; align-items:center; gap:16px; }
+.serve-panel h1 { font-size:24px; margin:7px 0; }.serve-panel p { font-size:11px; color:var(--muted); line-height:1.7; margin:10px 0 18px; }
+.serve-status { border:1px solid #354053; border-radius:20px; padding:7px 14px; color:var(--accent); }
+.serve-layout { display:grid; grid-template-columns:minmax(320px,1fr) minmax(350px,1.2fr); gap:18px; margin-top:12px; }
+.serve-card { padding:22px; border:1px solid var(--border); border-radius:10px; background:#171e29; min-width:0; }
+.serve-card h2 { font-size:13px; margin:0 0 14px; }.serve-card header span { color:var(--muted); font-size:10px; }
+.serve-endpoint { display:flex; align-items:center; gap:12px; font-size:12px; overflow-wrap:anywhere; }.serve-endpoint b { color:var(--accent); }
+.serve-actions { display:flex; align-items:center; gap:16px; margin-bottom:28px; }
+.serve-card pre { background:#0d1016; padding:14px; border-radius:6px; overflow:auto; font-size:11px; line-height:1.6; }
+.serve-response { height:calc(100dvh - 355px); min-height:280px; margin:0; }
+.serve-panel .serve-error { color:#f0ad9d; }
+@media(max-width:800px) { .serve-layout { grid-template-columns:1fr; } }
+.serve-model { border:1px solid var(--border); border-radius:10px; overflow:hidden; margin:14px 0; }
+.serve-model-canvas { height:440px; }.serve-model-canvas canvas { display:block; width:100%; height:100%; }
+.serve-model-legend { display:flex; justify-content:space-between; gap:12px; padding:12px; font-size:10px; color:var(--muted); background:#171e29; flex-wrap:wrap; }
+.serve-model { position:relative; }
+.serve-enclosure { position:absolute; top:12px; right:12px; z-index:1; font-size:10px; background:#171d27dd; }
