@@ -640,16 +640,44 @@ export class InstrumentScene {
     if (!this.expected) return;
     this.expected.renderer.dispose(); this.expected.renderer.domElement.remove(); this.expected = undefined;
   }
-  private renderExpectedView() {
+  /** Point the expected-view camera along the modeled Tiny 2 optical frame. */
+  private syncExpectedCamera() {
     const view = this.expected;
     const optical = this.entries.get("tiny2")?.robot?.links.obsbot_camera_optical_frame;
-    if (!view || !optical || !this.workspace?.tiny2.present) return;
+    if (!view || !optical || !this.workspace?.tiny2.present) return null;
     this.scene.updateMatrixWorld(true);
     optical.getWorldPosition(view.camera.position);
     view.camera.quaternion.copy(opticalViewQuaternion(optical.getWorldQuaternion(new THREE.Quaternion())));
     view.camera.aspect = view.aspect;
     view.camera.fov = verticalFov(view.horizontalFov, view.aspect);
     view.camera.updateProjectionMatrix();
+    view.camera.updateMatrixWorld(true);
+    return view;
+  }
+  /**
+   * Project Flex-frame points (meters, URDF frame) into the expected camera image.
+   * Returns normalized image coordinates (0..1, origin top-left), or null for a
+   * polygon with any point behind the camera.
+   */
+  projectFlexPolygons(polygons: [number, number, number][][]): ([number, number][] | null)[] {
+    const view = this.syncExpectedCamera(), flex = this.entries.get("flex");
+    if (!view || !flex?.robot) return polygons.map(() => null);
+    flex.group.updateWorldMatrix(true, false);
+    const viewSpace = new THREE.Vector3();
+    return polygons.map(points => {
+      const image: [number, number][] = [];
+      for (const point of points) {
+        const world = flex.group.localToWorld(new THREE.Vector3(...point));
+        if (viewSpace.copy(world).applyMatrix4(view.camera.matrixWorldInverse).z >= 0) return null;
+        const ndc = world.project(view.camera);
+        image.push([(ndc.x + 1) / 2, (1 - ndc.y) / 2]);
+      }
+      return image;
+    });
+  }
+  private renderExpectedView() {
+    const view = this.syncExpectedCamera(), workspace = this.workspace;
+    if (!view || !workspace) return;
     const width = Math.max(1, view.host.clientWidth), height = Math.max(1, view.host.clientHeight);
     const size = view.renderer.getSize(new THREE.Vector2());
     if (size.x !== width || size.y !== height) view.renderer.setSize(width, height);
@@ -672,9 +700,9 @@ export class InstrumentScene {
       this.labBackdrop.position.copy(flex.group.position);
       this.labBackdrop.quaternion.copy(flex.group.quaternion);
     }
-    visible(this.labBackdrop, !!this.workspace.flex.present);
+    visible(this.labBackdrop, !!workspace.flex.present);
     for (const [id, entry] of this.entries) {
-      visible(entry.group, id !== "tiny2" && !!this.workspace[id].present);
+      visible(entry.group, id !== "tiny2" && !!workspace[id].present);
       if (entry.footprint) visible(entry.footprint, false);
     }
     visible(this.grid, false); visible(this.mountMarker, false); visible(this.transform.getHelper(), false);

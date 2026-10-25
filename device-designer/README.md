@@ -57,3 +57,23 @@ In Camera calibration, the left pane renders the saved Tiny 2 optical frame (inc
 - **OBSBOT service** accepts an MJPEG URL. The existing sibling `obsbot-control` project exposes `http://127.0.0.1:5100/obsbot/video.mjpeg?orientation=none`. Run it from its repository with `dotnet run --project src/Obsbot.Control.Lab/Obsbot.Control.Lab.csproj --urls http://127.0.0.1:5100`. Its configured FFmpeg capture targets `OBSBOT Tiny SE StreamCamera` at 640 x 360. This external service is not bundled with this repository.
 
 Connection starts only on **Connect camera**. Disconnect or leave the phase to release USB tracks / close the MJPEG request. No pan/tilt hardware commands, automatic camera motion, or video recording are performed. Capture settings, connection selection, and field-of-view tuning are session-only; the saved workspace remains the source for the modeled pose. The detected Tiny SE and the modeled Tiny 2 are different devices, so this comparison is not a calibrated prediction until physical pose and lens parameters are measured.
+
+## Protocol deck
+
+The **Protocol deck** panel (left sidebar, both phases) loads what a protocol expects on the Flex deck and draws each labware as a true-size, color-coded box in its slot (blue tip racks, orange plates, green reservoirs). The boxes also appear in the expected camera view.
+
+- **From the Opentrons App:** with `npm run dev`, the list shows every protocol the Opentrons App has analyzed, read-only from its data folder (`~/Library/Application Support/Opentrons` on macOS, `%APPDATA%/Opentrons` on Windows; override with `OPENTRONS_APP_DATA`). The static build has no access to that folder.
+- **From a file:** **Open analysis JSON** accepts an Opentrons protocol analysis file.
+
+Only the initial layout (`loadLabware` / `loadModule`) is read. Labware stacked on adapters is placed on top of them; trash bins and the waste chute are detected from the protocol's addressable areas. Module heights are not modeled, labware moved during a run is not shown, and staging slots (A4–D4) are positioned but the Flex model has no staging area. Non-Flex protocols load with a warning.
+
+## Deck check
+
+In Camera calibration, outlines of slots A1–D3 are projected onto both the expected and the live image using the saved camera pose and field of view. Outlines that miss the real slots mean the alignment needs redoing before the check is reliable.
+
+1. Clear the deck and choose **Capture empty deck**.
+2. Set up the labware and choose **Check deck**, or enable **Check every second**.
+
+Each slot is compared with the empty-deck reference (brightness-normalized color difference) and with the loaded protocol: **OK**, **Missing** (expected but looks empty), **Unexpected** (occupied but nothing expected) or **Not visible**. Problem slots turn red on the live image. **Sensitivity** sets the occupied threshold; raise it if shadows or lighting changes register as labware.
+
+The check detects occupied versus empty, not the labware type. The camera must not move between capturing the reference and checking. Tall labware can overlap neighboring slots in the image, so each slot is sampled over its central 80%. The reference stays in memory for the session.

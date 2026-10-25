@@ -19,6 +19,8 @@ const analysis = {
     { commandType: "loadModule", params: { model: "temperatureModuleV2", location: { slotName: "B1" } }, result: { moduleId: "temp" } },
     load("block", "opentrons_96_well_aluminum_block", { moduleId: "temp" }, definition("Block", "aluminumBlock", 18)),
     load("spare", "nest_12_reservoir_15ml", "offDeck", definition("Spare", "reservoir", 31)),
+    { commandType: "moveToAddressableAreaForDropTip", params: { addressableAreaName: "movableTrashA3" }, result: {} },
+    { commandType: "moveToAddressableAreaForDropTip", params: { addressableAreaName: "movableTrashA3" }, result: {} },
   ],
 };
 
@@ -42,6 +44,7 @@ describe("protocol deck", () => {
       ["B1", "opentrons_96_well_aluminum_block"],
     ]);
     expect(deck.modules).toEqual([{ id: "temp", model: "temperatureModuleV2", slot: "B1" }]);
+    expect(deck.fixtures).toEqual([{ kind: "trashBin", slot: "A3" }]);
     expect(deck.warnings.some(w => w.includes("off-deck"))).toBe(true);
     expect(deck.warnings.some(w => w.includes("module height"))).toBe(true);
   });

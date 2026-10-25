@@ -558,7 +558,7 @@ export default function App() {
       </aside>}
 
       <main className="viewport">
-        {phase === "calibration" && <CameraComparison lighting={lighting} setLighting={setLighting} pose={workspace.tiny2.pose} onPose={pose => setWorkspace(previous => ({ ...previous, tiny2: { ...previous.tiny2, pose } }))} onAngles={(pan, tilt) => setWorkspace(previous => ({ ...previous, tiny2: { ...previous.tiny2, joints: { ...previous.tiny2.joints, obsbot_pan_joint: pan * Math.PI / 180, obsbot_tilt_joint: tilt * Math.PI / 180 } } }))} onSave={() => saveSetup()} fov={horizontalFov} setFov={setHorizontalFov} scene={scene.current} cameraControls={<>
+        {phase === "calibration" && <CameraComparison deck={expectedDeck} lighting={lighting} setLighting={setLighting} pose={workspace.tiny2.pose} onPose={pose => setWorkspace(previous => ({ ...previous, tiny2: { ...previous.tiny2, pose } }))} onAngles={(pan, tilt) => setWorkspace(previous => ({ ...previous, tiny2: { ...previous.tiny2, joints: { ...previous.tiny2.joints, obsbot_pan_joint: pan * Math.PI / 180, obsbot_tilt_joint: tilt * Math.PI / 180 } } }))} onSave={() => saveSetup()} fov={horizontalFov} setFov={setHorizontalFov} scene={scene.current} cameraControls={<>
           <CameraHardwareControls onReading={(pan, tilt) => setWorkspace(previous => {
             const joints = { ...previous.tiny2.joints, obsbot_pan_joint: pan * Math.PI / 180, obsbot_tilt_joint: tilt * Math.PI / 180 };
             if (previous.tiny2.joints.obsbot_pan_joint === joints.obsbot_pan_joint && previous.tiny2.joints.obsbot_tilt_joint === joints.obsbot_tilt_joint) return previous;

@@ -1699,3 +1699,35 @@ svg {
 .protocol-deck-note, .protocol-deck-warning, .protocol-deck-error { font-size: 9px; line-height: 1.6; color: #748298; }
 .protocol-deck-warning { color: #d9b46a; }
 .protocol-deck-error { color: #f08b8b; }
+
+/* Deck check: slot outlines over the live image and per-slot results */
+.deck-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.deck-slot polygon { fill: rgba(145, 186, 255, .06); stroke: rgba(145, 186, 255, .55); stroke-width: 1.5px; }
+.deck-slot text { font-size: .022px; fill: #e6eefb; text-anchor: middle; dominant-baseline: middle; font-family: "DM Mono", monospace; paint-order: stroke; stroke: #0b1018; stroke-width: .004px; }
+.deck-slot.expected polygon { stroke: #91baff; stroke-dasharray: 4 3; }
+.deck-slot.ok-occupied polygon, .deck-slot.ok-empty polygon { fill: rgba(79, 192, 143, .14); stroke: #4fc08f; }
+.deck-slot.missing polygon, .deck-slot.unexpected polygon { fill: rgba(240, 107, 107, .22); stroke: #f06b6b; stroke-width: 2.5px; }
+.deck-slot.hidden polygon { stroke: #6b7789; stroke-dasharray: 2 3; }
+.deck-check { margin-top: 18px; padding: 14px; border: 1px solid #283241; border-radius: 6px; background: #141b25; display: flex; flex-direction: column; gap: 12px; }
+.deck-check > header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.deck-check h3 { font-family: "DM Sans", sans-serif; font-size: 14px; color: #edf1f8; margin-top: 4px; }
+.deck-verdict { font-size: 10px; padding: 5px 9px; border-radius: 4px; }
+.deck-verdict.good { color: #8fe0bb; background: rgba(79, 192, 143, .14); border: 1px solid rgba(79, 192, 143, .4); }
+.deck-verdict.bad { color: #ffb0b0; background: rgba(240, 107, 107, .14); border: 1px solid rgba(240, 107, 107, .45); }
+.deck-steps { display: flex; flex-direction: column; gap: 8px; padding-left: 18px; font-size: 10px; color: #a9b7cb; }
+.deck-steps li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.deck-steps li::marker { color: #6f7f96; }
+.deck-auto { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; color: #93a5bf; }
+.deck-threshold { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; font-size: 10px; color: #93a5bf; }
+.deck-threshold input { grid-column: 1 / -1; width: 100%; }
+.deck-threshold small { grid-column: 1 / -1; font-size: 9px; color: #6f7f96; }
+.deck-note { font-size: 9px; color: #748298; }
+.deck-results { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; }
+.deck-results li { display: flex; align-items: center; gap: 8px; font-size: 10px; color: #c4cfdf; padding: 6px 8px; border-radius: 4px; border: 1px solid #283241; }
+.deck-results li.missing, .deck-results li.unexpected { border-color: rgba(240, 107, 107, .5); background: rgba(240, 107, 107, .08); }
+.deck-results li.ok-occupied { border-color: rgba(79, 192, 143, .4); }
+.deck-results li strong { margin-left: auto; font-size: 9px; color: #a9b7cb; }
+.deck-results li.missing strong, .deck-results li.unexpected strong { color: #ffb0b0; }
+.deck-results li.ok-occupied strong { color: #8fe0bb; }
+.deck-result-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deck-result-score { font-family: "DM Mono", monospace; font-size: 9px; color: #6f7f96; }

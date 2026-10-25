@@ -4,9 +4,11 @@ import type { InstrumentScene } from "./scene";
 import { defaultLighting, matchLighting, sampleFrame, type Lighting } from "./lighting-match";
 import type { Pose } from "./state";
 import { CameraAlignment, type Capture } from "./CameraAlignment";
+import type { ExpectedDeck } from "./protocol-deck";
+import { DeckCheckPanel, DeckOverlay, useDeckCheck } from "./DeckCheck";
 
-export function CameraComparison({ scene, cameraControls, fov, setFov, pose, onPose, onAngles, onSave, lighting, setLighting }: {
-  lighting: Lighting; setLighting: (value: Lighting) => void;
+export function CameraComparison({ scene, cameraControls, fov, setFov, pose, onPose, onAngles, onSave, lighting, setLighting, deck }: {
+  lighting: Lighting; setLighting: (value: Lighting) => void; deck: ExpectedDeck | null;
   scene: InstrumentScene | null; cameraControls: ReactNode; fov: number; setFov: (value: number) => void;
   pose: Pose; onPose: (pose: Pose) => void; onAngles: (pan: number, tilt: number) => void; onSave: () => boolean;
 }) {
@@ -79,6 +81,7 @@ export function CameraComparison({ scene, cameraControls, fov, setFov, pose, onP
 
   const [showControls, setShowControls] = useState(true);
   const fullView = status === "live" && expanded;
+  const deckCheck = useDeckCheck(scene, deck, () => source === "usb" ? video.current : actualImage.current, status === "live", aspect);
 
   function stopTracks() {
     request.current++;
@@ -176,15 +179,17 @@ export function CameraComparison({ scene, cameraControls, fov, setFov, pose, onP
     {capture && <CameraAlignment capture={capture.model} actual={capture.actual} fov={fov} aspect={aspect} onCancel={() => setCapture(null)} onApply={(nextPose, nextFov, rms) => { setPreview({ pose: { ...pose }, fov, rms }); onPose(nextPose); setFov(nextFov); setCapture(null); }}/>}
     <div inert={starting || !!capture} className={`comparison-body${showControls ? " with-controls" : ""}`}>
     <div className="comparison-views">
-      <section className="comparison-pane"><div className="comparison-heading"><span>Expected</span><small>Model</small></div><div className="image-well"><div className="expected-image" ref={expectedHost} style={{ aspectRatio: aspect }}/></div><p>Modeled mount and reported pan/tilt. Use Camera controls to adjust alignment.</p></section>
+      <section className="comparison-pane"><div className="comparison-heading"><span>Expected</span><small>Model</small></div><div className="image-well"><div className="expected-image" ref={expectedHost} style={{ aspectRatio: aspect }}/><DeckOverlay state={deckCheck} aspect={aspect} /></div><p>Modeled mount and reported pan/tilt. Use Camera controls to adjust alignment.</p></section>
       <section className="comparison-pane"><div className="comparison-heading"><span>Actual</span><small>{resolution || "Waiting for camera"}</small></div><div className="image-well">
         <video ref={video} muted playsInline autoPlay hidden={source !== "usb" || status === "idle"} onLoadedMetadata={e => dimensions(e.currentTarget.videoWidth, e.currentTarget.videoHeight)} onPlaying={() => setStatus("live")} />
         {liveUrl && <img ref={actualImage} src={liveUrl} alt="Live OBSBOT camera feed" onLoad={e => { dimensions(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight); setStatus("live"); }} onError={() => { disconnect(); setError("The OBSBOT stream could not be loaded. Check its address and that the camera service is running."); }} />}
+        {status === "live" && <DeckOverlay state={deckCheck} aspect={aspect} />}
         {status === "idle" && <div className="camera-empty"><Camera size={28}/><strong>Connect your OBSBOT</strong><p>Choose a USB camera or the existing camera service.</p></div>}
       </div><p>{deviceLabel || "Video only. No audio is requested."}</p></section>
     </div>
     <aside hidden={!showControls} className="comparison-camera-controls" id="comparison-camera-controls" aria-label="Camera controls"><header><div><span className="small-label">CAMERA & MODEL</span><h3>Camera controls</h3></div><button aria-label="Close camera controls" onClick={() => setShowControls(false)}>×</button></header>{cameraControls}<div className="lens-control" id="comparison-lens"><label htmlFor="expected-fov">Field of view <strong>{fov.toFixed(1)}°</strong></label><input id="expected-fov" aria-label="Expected horizontal field of view" type="range" min="30" max="120" step=".1" value={fov} onChange={e => setFov(Number(e.target.value))}/><p>70 degrees is an initial estimate. Both panes use the camera feed's aspect ratio without mirroring or cropping.</p></div></aside>
     </div>
+    <DeckCheckPanel state={deckCheck} live={status === "live"} />
     <div className="camera-connect">
       <label>Source<select aria-label="Camera source" value={source} disabled={status !== "idle"} onChange={e => { setSource(e.target.value as "usb" | "service"); setError(""); }}><option value="usb">USB camera</option><option value="service">OBSBOT service</option></select></label>
       {source === "usb" ? <label className="camera-device">Camera<select aria-label="Camera device" value={deviceId} disabled={status !== "idle"} onChange={e => setDeviceId(e.target.value)}><option value="">Select a camera</option>{devices.map((d, i) => <option key={d.deviceId || i} value={d.deviceId}>{d.label || `Camera ${i + 1}`}</option>)}</select></label> : <label className="camera-device">Stream address<input aria-label="OBSBOT stream address" value={serviceUrl} disabled={status !== "idle"} onChange={e => setServiceUrl(e.target.value)}/></label>}

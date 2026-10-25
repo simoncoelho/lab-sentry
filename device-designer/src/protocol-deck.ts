@@ -20,12 +20,16 @@ export type ExpectedLabware = {
 
 export type ExpectedModule = { id: string; model: string; slot: string };
 
+/** Deck fixtures a protocol uses without loading them as labware (trash bin, waste chute). */
+export type ExpectedFixture = { kind: "trashBin" | "wasteChute"; slot: string };
+
 export type ExpectedDeck = {
   protocolName: string;
   robotType: string;
   ok: boolean;
   labware: ExpectedLabware[];
   modules: ExpectedModule[];
+  fixtures: ExpectedFixture[];
   warnings: string[];
 };
 
@@ -59,10 +63,17 @@ export function parseAnalysis(raw: unknown): ExpectedDeck {
   if (!ok) warnings.push("The Opentrons App reported errors for this analysis; the layout may be incomplete.");
 
   const modules: ExpectedModule[] = [];
+  const fixtures: ExpectedFixture[] = [];
+  const addFixture = (fixture: ExpectedFixture) => { if (!fixtures.some(f => f.slot === fixture.slot)) fixtures.push(fixture); };
   const labware: ExpectedLabware[] = [];
   const slotOf = new Map<string, string>();
 
   for (const command of analysis.commands as Json[]) {
+    // Trash bins and the waste chute only show up as addressable areas, e.g. "movableTrashA3".
+    const area = String(command.params?.addressableAreaName ?? "");
+    const trash = /^movableTrash([A-D][1-3])$/.exec(area);
+    if (trash) addFixture({ kind: "trashBin", slot: trash[1] });
+    else if (/WasteChute/i.test(area)) addFixture({ kind: "wasteChute", slot: "D3" });
     if (command.commandType === "loadModule") {
       const id = command.result?.moduleId, slot = command.params?.location?.slotName;
       if (!id || !slot) continue;
@@ -97,7 +108,7 @@ export function parseAnalysis(raw: unknown): ExpectedDeck {
       cornerOffset: vec(definition.cornerOffsetFromSlot),
     });
   }
-  return { protocolName: String(analysis.metadata?.protocolName ?? "Untitled protocol"), robotType, ok, labware, modules, warnings };
+  return { protocolName: String(analysis.metadata?.protocolName ?? "Untitled protocol"), robotType, ok, labware, modules, fixtures, warnings };
 }
 
 /**
