@@ -12,7 +12,7 @@
     {
       "name": "test_opentron_file.py",
       "layout": {
-        "D1": "Microplate",
+        "C2": "Microplate",
         "D2": "Reservoir",
         "B3": "Tip rack",
         "C3": "Tip rack"
