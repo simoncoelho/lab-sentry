@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deck Check</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --panel: #ffffff; --text: #1d2330; --muted: #6b7385; --line: #dfe3ea;
+    --accent: #3b6ef5; --ok: #1f9d55; --ok-bg: #e6f6ec; --bad: #d64545; --bad-bg: #fdeaea;
+    --warn: #b7791f; --warn-bg: #fdf4e3; --slot: #eef1f6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 24px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  h1 { font-size: 18px; margin: 0; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 40px; }
+  .pill { font-size: 13px; padding: 4px 10px; border-radius: 999px; background: var(--slot); color: var(--muted); }
+  .pill.ok { background: var(--ok-bg); color: var(--ok); }
+  .pill.warn { background: var(--warn-bg); color: var(--warn); }
+  .pill.bad { background: var(--bad-bg); color: var(--bad); }
+  .controls { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 20px; }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  select, input { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); min-width: 220px; }
+  button { font: inherit; font-weight: 600; padding: 10px 18px; border-radius: 8px; border: 0; cursor: pointer; background: var(--accent); color: #fff; }
+  button.secondary { background: var(--panel); color: var(--text); border: 1px solid var(--line); }
+  button.go { background: var(--ok); }
+  button.stop { background: var(--bad); }
+  button:disabled { opacity: .5; cursor: default; }
+  .decks { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .card h2 { font-size: 15px; margin: 0 0 12px; }
+  .deck { display: grid; grid-template-columns: 24px repeat(var(--cols), 1fr); gap: 6px; }
+  .deck .lbl { display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--muted); font-weight: 600; }
+  .slot { position: relative; aspect-ratio: 128 / 86; border-radius: 8px; background: var(--slot); border: 2px solid transparent; padding: 6px; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }
+  .slot .name { font-size: 11px; color: var(--muted); font-weight: 600; }
+  .slot .what { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+  .slot.filled { background: #e4ebfd; }
+  .slot.ignored { background: repeating-linear-gradient(45deg, var(--slot), var(--slot) 6px, #e2e6ee 6px, #e2e6ee 12px); }
+  .slot.ignored .what { color: var(--muted); }
+  .slot.match { border-color: var(--ok); background: var(--ok-bg); }
+  .slot.mismatch { border-color: var(--bad); background: var(--bad-bg); }
+  .slot.mismatch .want { font-size: 11px; color: var(--bad); }
+  .slot .note { font-size: 10px; color: var(--muted); overflow-wrap: anywhere; }
+  .problems { margin: 4px 0 0; padding-left: 18px; font-weight: 400; }
+  .placeholder { color: var(--muted); font-size: 14px; padding: 40px 0; text-align: center; }
+  .banner { margin: 20px 0; padding: 14px 16px; border-radius: 10px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .banner.bad { background: var(--bad-bg); color: var(--bad); }
+  .banner.ok { background: var(--ok-bg); color: var(--ok); }
+  .banner.info { background: var(--slot); color: var(--text); }
+  .hidden { display: none !important; }
+  .legend { font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .run-actions { display: flex; gap: 8px; }
+  .stream { font-size: 13px; color: var(--muted); margin: -8px 0 20px; overflow-wrap: anywhere; }
+  .stream.live { color: var(--ok); }
+  .stream.down { color: var(--bad); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Deck Check</h1>
+  <span id="robot" class="pill">Robot: checking…</span>
+</header>
+<main>
+  <div class="controls">
+    <label>Protocol <select id="protocol"></select></label>
+    <label>Vision service IP <input id="visionHost" placeholder="e.g. 192.168.0.50" inputmode="decimal"></label>
+    <button id="checkBtn">Start protocol</button>
+  </div>
+  <div id="streamStatus" class="stream">Stream: enter the vision service IP</div>
+
+  <div class="decks">
+    <section class="card">
+      <h2>Expected deck</h2>
+      <div id="expectedDeck"></div>
+    </section>
+    <section class="card">
+      <h2>Found deck</h2>
+      <div id="foundDeck"><div class="placeholder">Press "Start protocol" to check the deck.</div></div>
+      <div class="legend">Green: matches. Red: wrong or extra labware. Grey: empty, not used by this protocol.</div>
+    </section>
+  </div>
+
+  <div id="banner" class="banner hidden"></div>
+
+  <div id="runPanel" class="banner info hidden">
+    <span id="runStatus"></span>
+    <span class="run-actions">
+      <button id="pauseBtn" class="secondary">Pause</button>
+      <button id="stopBtn" class="stop">Stop</button>
+    </span>
+  </div>
+</main>
+
+<script>
+const label = c => c == null ? "" : c;  // names are shown exactly as protocols.json / the vision service write them
+const $ = id => document.getElementById(id);
+let cfg, pollTimer;
+
+async function api(path, body) {
+  const r = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {});
+  const data = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+  if (!r.ok) throw Object.assign(new Error(data.error || `HTTP ${r.status}`), { data });
+  return data;
+}
+
+function currentProtocol() { return cfg.protocols.find(p => p.name === $("protocol").value); }
+
+function renderDeck(el, cells) {
+  const slots = Object.keys(cells);
+  const cols = slots.some(s => s.endsWith("4")) ? 4 : 3;
+  let html = `<div class="deck" style="--cols:${cols}">`;
+  for (const row of ["A", "B", "C", "D"]) {
+    html += `<div class="lbl">${row}</div>`;
+    for (let c = 1; c <= cols; c++) {
+      const s = row + c, waste = cfg.ignored_slots && cfg.ignored_slots[s];
+      const cell = waste ? { what: waste, cls: "ignored", note: "not checked" } : (cells[s] || {});
+      html += `<div class="slot ${cell.cls || ""}"><span class="name">${s}</span>` +
+              `<span class="what">${label(cell.what)}</span>` +
+              (cell.want ? `<span class="want">expected ${label(cell.want)}</span>` : "") +
+              (cell.note ? `<span class="note">${escapeHtml(cell.note)}</span>` : "") + `</div>`;
+    }
+  }
+  el.innerHTML = html + `</div><div class="deck" style="--cols:${cols};margin-top:4px"><div></div>` +
+    Array.from({ length: cols }, (_, i) => `<div class="lbl">${i + 1}</div>`).join("") + `</div>`;
+}
+
+function showExpected() {
+  const cells = {};
+  for (const [s, c] of Object.entries(currentProtocol().layout)) cells[s.toUpperCase()] = { what: c, cls: "filled" };
+  renderDeck($("expectedDeck"), cells);
+  $("foundDeck").innerHTML = `<div class="placeholder">Press "Start protocol" to check the deck.</div>`;
+  hideBanner();
+}
+
+function showFound(check) {
+  const cells = {};
+  for (const s of check.slots) {
+    const checked = s.expected != null;
+    cells[s.slot] = {
+      what: s.seen ?? "not reported",
+      cls: !s.match ? "mismatch" : checked ? "match" : "",
+      want: s.match ? null : (s.expected ?? "Empty"),
+      note: s.note,
+    };
+  }
+  renderDeck($("foundDeck"), cells);
+}
+
+function hideBanner() { $("banner").className = "banner hidden"; }
+function banner(kind, html) { const b = $("banner"); b.className = `banner ${kind}`; b.innerHTML = html; }
+
+async function refreshRobot() {
+  const el = $("robot");
+  try {
+    const r = await api("/api/robot");
+    const run = r.current_run;
+    const busy = run && !["succeeded", "failed", "stopped"].includes(run.status);
+    el.className = `pill ${busy ? "warn" : "ok"}`;
+    el.textContent = `${r.name}: ${busy ? `run ${run.status}` : "ready"}`;
+    el.title = run ? `current run ${run.id}` : "";
+  } catch (e) { el.className = "pill bad"; el.textContent = "Robot not reachable"; el.title = e.message; }
+}
+
+// Keeps the server's stream to the vision service open and shows its state.
+async function refreshStream() {
+  const host = $("visionHost").value.trim(), el = $("streamStatus");
+  if (!host) { el.className = "stream"; el.textContent = "Stream: enter the vision service IP"; return; }
+  try {
+    const s = await api("/api/stream", { vision_host: host });
+    const fresh = s.age_seconds != null && s.age_seconds <= 10;
+    el.className = `stream ${s.connected && fresh ? "live" : s.connected ? "" : "down"}`;
+    el.textContent = `Stream ${s.url}: ${s.connected ? "connected" : "not connected"}` +
+      (s.age_seconds != null ? `, last update ${Math.round(s.age_seconds)} s ago` : ", no data yet") +
+      (!s.connected && s.last_error ? ` (${s.last_error})` : "");
+  } catch (e) { el.className = "stream down"; el.textContent = `Stream: ${e.message}`; }
+}
+
+// Uses the latest streamed state; waits briefly if none has arrived recently.
+async function latestCheck(host) {
+  const deadline = Date.now() + 10000;
+  for (;;) {
+    try {
+      return await api("/api/check", { protocol: $("protocol").value, vision_host: host });
+    } catch (e) {
+      if (!(e.data && e.data.waiting) || Date.now() > deadline) throw e;
+      banner("info", `Waiting for deck state… ${escapeHtml(e.message)}`);
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
+}
+
+async function checkDeck() {
+  const host = $("visionHost").value.trim();
+  if (!host) { $("visionHost").focus(); banner("bad", "Enter the vision service IP address."); return; }
+  try { localStorage.setItem("visionHost", host); } catch {}
+  $("checkBtn").disabled = true;
+  banner("info", "Checking the deck…");
+  try {
+    const check = await latestCheck(host);
+    showFound(check);
+    if (check.ok) {
+      banner("ok", `<span>Deck is in the correct state.</span><button class="go" id="runBtn">Start and run method</button>`);
+      $("runBtn").onclick = startRun;
+    } else {
+      const why = (check.problems || []).map(p => `<li>${escapeHtml(p)}</li>`).join("");
+      banner("bad", `<span>Deck Not In Correct State${why ? `<ul class="problems">${why}</ul>` : ""}</span>` +
+                    `<button class="secondary" id="againBtn">Check again</button>`);
+      $("againBtn").onclick = checkDeck;
+    }
+  } catch (e) {
+    banner("bad", `<span>${escapeHtml(e.message)}</span>`);
+  } finally { $("checkBtn").disabled = false; }
+}
+
+async function startRun() {
+  $("runBtn").disabled = true; $("checkBtn").disabled = true;
+  banner("info", "Re-checking the deck and starting the run…");
+  try {
+    const r = await api("/api/start", { protocol: $("protocol").value, vision_host: $("visionHost").value.trim() });
+    showFound(r.check);
+    hideBanner();
+    pollRun(r.run_id);
+  } catch (e) {
+    if (e.data && e.data.check) showFound(e.data.check);
+    banner("bad", `<span>${escapeHtml(e.message)}</span>`);
+    $("checkBtn").disabled = false;
+  }
+}
+
+const FINISHED = ["succeeded", "failed", "stopped"];
+let activeRun = null, runState = null;
+
+// Run panel: status plus Pause/Resume and Stop, updated in place so clicks aren't lost between polls.
+function showRun(runId, status, note = "") {
+  const done = FINISHED.includes(status);
+  const panel = $("runPanel");
+  panel.className = `banner ${status === "succeeded" ? "ok" : done || status === "stop-requested" ? "bad" : "info"}`;
+  $("runStatus").textContent = `Run ${runId.slice(0, 8)}…: ${status}${note ? ` (${note})` : ""}`;
+  const pause = $("pauseBtn");
+  pause.textContent = status === "paused" ? "Resume" : "Pause";
+  pause.classList.toggle("hidden", done || !["running", "paused"].includes(status));
+  $("stopBtn").classList.toggle("hidden", done || status === "stop-requested");
+}
+
+async function runAction(action) {
+  if (!activeRun) return;
+  const buttons = [$("pauseBtn"), $("stopBtn")];
+  buttons.forEach(b => b.disabled = true);
+  try {
+    await api(`/api/run/${activeRun}/${action}`, {});
+    showRun(activeRun, runState, `${action} sent`);
+  } catch (e) {
+    showRun(activeRun, runState, e.message);
+  } finally { buttons.forEach(b => b.disabled = false); }
+}
+
+function pollRun(runId) {
+  activeRun = runId;
+  $("checkBtn").disabled = true;
+  const tick = async () => {
+    try {
+      const r = await api(`/api/run/${runId}`);
+      runState = r.status;
+      showRun(runId, r.status);
+      if (FINISHED.includes(r.status)) { clearInterval(pollTimer); activeRun = null; $("checkBtn").disabled = false; refreshRobot(); }
+    } catch (e) { showRun(runId, runState || "unknown", e.message); }
+  };
+  clearInterval(pollTimer);
+  tick();
+  pollTimer = setInterval(tick, 2000);
+}
+
+function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+(async () => {
+  cfg = await api("/api/config");
+  $("protocol").innerHTML = cfg.protocols.map(p => `<option>${escapeHtml(p.name)}</option>`).join("");
+  let saved = ""; try { saved = localStorage.getItem("visionHost") || ""; } catch {}
+  $("visionHost").value = saved || cfg.vision_host || "";
+  $("protocol").onchange = showExpected;
+  $("checkBtn").onclick = checkDeck;
+  $("pauseBtn").onclick = () => runAction(runState === "paused" ? "resume" : "pause");
+  $("stopBtn").onclick = () => runAction("stop");
+  $("visionHost").onchange = () => {
+    try { localStorage.setItem("visionHost", $("visionHost").value.trim()); } catch {}
+    refreshStream();
+  };
+  showExpected();
+  refreshRobot();
+  refreshStream();
+  setInterval(refreshRobot, 10000);
+  setInterval(refreshStream, 2000);
+  // pick up a run that is already going (e.g. after reloading the page)
+  try {
+    const r = await api("/api/robot");
+    if (r.current_run && !FINISHED.includes(r.current_run.status)) pollRun(r.current_run.id);
+  } catch {}
+})();
+</script>
+</body>
+</html>
