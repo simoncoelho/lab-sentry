@@ -70,8 +70,8 @@
       ]
     },
     "cameraPtz": {
-      "pan": 10,
-      "tilt": 40,
+      "pan": -35,
+      "tilt": -85,
       "zoom": 0,
       "device": "OBSBOT Tiny SE StreamCamera"
     }

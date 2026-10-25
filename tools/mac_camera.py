@@ -320,6 +320,10 @@ class Controls:
 
     def connect(self):
         self.uvc = Uvc.find()
+        try:  # saved views name the camera by its video device ("... StreamCamera"), not its USB product
+            self.uvc.name = find_camera()[1]
+        except RuntimeError:
+            pass
         self.ranges = self.uvc.ranges()
         self.last_error = None
         return self.state()
