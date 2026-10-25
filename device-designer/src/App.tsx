@@ -23,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 import { STORAGE_KEY, snapshot, parseWorkspace, matchesSaved, type SavedWorkspace } from "./workspace-file";
+import { defaultLighting, type Lighting } from "./lighting-match";
 import { CameraComparison } from "./CameraComparison";
 import { CameraHardwareControls } from "./CameraHardwareControls";
 import { InstrumentScene, type ModelInfo } from "./scene";
@@ -178,6 +179,7 @@ export default function App() {
   const [restored] = useState(restoreSaved);
   const [saved, setSaved] = useState<SavedWorkspace | null>(restored.saved);
   const [workspaceName, setWorkspaceName] = useState(restored.saved?.name || "My lab workspace");
+  const [lighting, setLighting] = useState<Lighting>(restored.saved?.view.lighting ?? defaultLighting);
   const [horizontalFov, setHorizontalFov] = useState(restored.saved?.view.horizontalFov ?? 70);
   const [phase, setPhase] = useState<"setup" | "calibration">("setup");
   const [saveError, setSaveError] = useState(restored.error);
@@ -336,10 +338,10 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [selected, help, state.present]);
 
-  const clean = matchesSaved(saved, workspaceName, workspace, { acrylicVisible, grid, horizontalFov });
+  const clean = matchesSaved(saved, workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting });
   const setupReady = activeInstruments.length > 0 && activeInstruments.every(i => loads[i.id]?.info) && !sceneError;
   function saveSetup(continueToCalibration = false) {
-    const next = snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov });
+    const next = snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting });
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       setSaved(next);
@@ -353,7 +355,7 @@ export default function App() {
     } catch { setSaveError("Saving failed. Your setup is still here. Export it as a file, or free browser storage and try again."); return false; }
   }
   function exportSetup() {
-    const next = snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov });
+    const next = snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting });
     const url = URL.createObjectURL(new Blob([JSON.stringify(next, null, 2)], { type: "application/json" }));
     const link = document.createElement("a"); link.href = url;
     link.download = `${next.name.replace(/[^a-z0-9_-]+/gi, "-")}.workspace.json`;
@@ -445,7 +447,7 @@ export default function App() {
               try {
                 if (file.size > 1000000) throw new Error("Workspace file is too large.");
                 const next = parseWorkspace(await file.text());
-                setWorkspace(structuredClone(next.workspace)); setWorkspaceName(next.name); setAcrylicVisible(next.view.acrylicVisible); setGrid(next.view.grid); setHorizontalFov(next.view.horizontalFov ?? 70);
+                setWorkspace(structuredClone(next.workspace)); setWorkspaceName(next.name); setAcrylicVisible(next.view.acrylicVisible); setGrid(next.view.grid); setHorizontalFov(next.view.horizontalFov ?? 70); setLighting(next.view.lighting ?? defaultLighting);
                 setMounting(false); setIsolated(false); setSaveError("");
                 setSelected(instruments.find(i => next.workspace[i.id].present)?.id || "flex");
               } catch { setSaveError("Could not open that workspace file. Your current setup has been kept."); }
@@ -548,7 +550,7 @@ export default function App() {
       </aside>}
 
       <main className="viewport">
-        {phase === "calibration" && <CameraComparison pose={workspace.tiny2.pose} onPose={pose => setWorkspace(previous => ({ ...previous, tiny2: { ...previous.tiny2, pose } }))} onAngles={(pan, tilt) => setWorkspace(previous => ({ ...previous, tiny2: { ...previous.tiny2, joints: { ...previous.tiny2.joints, obsbot_pan_joint: pan * Math.PI / 180, obsbot_tilt_joint: tilt * Math.PI / 180 } } }))} onSave={() => saveSetup()} fov={horizontalFov} setFov={setHorizontalFov} scene={scene.current} cameraControls={<>
+        {phase === "calibration" && <CameraComparison lighting={lighting} setLighting={setLighting} pose={workspace.tiny2.pose} onPose={pose => setWorkspace(previous => ({ ...previous, tiny2: { ...previous.tiny2, pose } }))} onAngles={(pan, tilt) => setWorkspace(previous => ({ ...previous, tiny2: { ...previous.tiny2, joints: { ...previous.tiny2.joints, obsbot_pan_joint: pan * Math.PI / 180, obsbot_tilt_joint: tilt * Math.PI / 180 } } }))} onSave={() => saveSetup()} fov={horizontalFov} setFov={setHorizontalFov} scene={scene.current} cameraControls={<>
           <CameraHardwareControls onReading={(pan, tilt) => setWorkspace(previous => {
             const joints = { ...previous.tiny2.joints, obsbot_pan_joint: pan * Math.PI / 180, obsbot_tilt_joint: tilt * Math.PI / 180 };
             if (previous.tiny2.joints.obsbot_pan_joint === joints.obsbot_pan_joint && previous.tiny2.joints.obsbot_tilt_joint === joints.obsbot_tilt_joint) return previous;

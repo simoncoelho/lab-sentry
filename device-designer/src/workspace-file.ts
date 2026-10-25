@@ -1,4 +1,5 @@
 import { instruments, type Workspace } from "./state";
+import type { Lighting } from "./lighting-match";
 
 export const STORAGE_KEY = "lab-sentry.workspace.v1";
 export type SavedWorkspace = {
@@ -6,7 +7,7 @@ export type SavedWorkspace = {
   name: string;
   savedAt: string;
   workspace: Workspace;
-  view: { acrylicVisible: boolean; grid: boolean; horizontalFov?: number };
+  view: { acrylicVisible: boolean; grid: boolean; horizontalFov?: number; lighting?: Lighting };
 };
 export function snapshot(name: string, workspace: Workspace, view: SavedWorkspace["view"]): SavedWorkspace {
   return { version: 1, name: name.trim() || "Untitled workspace", savedAt: new Date().toISOString(), workspace: structuredClone(workspace), view: { ...view } };
@@ -17,6 +18,8 @@ export function parseWorkspace(raw: string): SavedWorkspace {
       typeof data.savedAt !== "string" || !Number.isFinite(Date.parse(data.savedAt)) ||
       typeof data.view?.acrylicVisible !== "boolean" || typeof data.view?.grid !== "boolean") throw new Error("Invalid workspace file.");
   if (data.view.horizontalFov !== undefined && (!Number.isFinite(data.view.horizontalFov) || data.view.horizontalFov < 30 || data.view.horizontalFov > 120)) throw new Error("Invalid camera field of view.");
+  const lighting = data.view.lighting;
+  if (lighting !== undefined && (!lighting || !Number.isFinite(lighting.exposure) || lighting.exposure < .3 || lighting.exposure > 2.5 || !Array.isArray(lighting.tint) || lighting.tint.length !== 3 || !lighting.tint.every(v => Number.isFinite(v) && v >= .7 && v <= 1.3))) throw new Error("Invalid lighting settings.");
   for (const { id } of instruments) {
     const state = data.workspace?.[id];
     if (!state || typeof state.present !== "boolean" || typeof state.visible !== "boolean" ||

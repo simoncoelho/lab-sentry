@@ -7,6 +7,8 @@ import { MTLLoader } from "three/addons/loaders/MTLLoader.js";
 import { toCreasedNormals } from "three/addons/utils/BufferGeometryUtils.js";
 import URDFLoader, { type URDFRobot } from "urdf-loader";
 import { opticalViewQuaternion, verticalFov } from "./camera-view";
+import { createLabBackdrop, createLabReflections } from "./lab-environment";
+import { defaultLighting, type Lighting } from "./lighting-match";
 import { sceneOrientation, rotatedPose, surfaceMountedPose } from "./orientation";
 import {
   clamp,
@@ -42,6 +44,7 @@ type Entry = {
 
 function disposeObject(object: THREE.Object3D) {
   object.traverse((child) => {
+    if (child instanceof THREE.DirectionalLight || child instanceof THREE.SpotLight) child.shadow.dispose();
     if (child instanceof THREE.Mesh || child instanceof THREE.LineSegments) {
       child.geometry.dispose();
       const materials = Array.isArray(child.material)
@@ -54,6 +57,9 @@ function disposeObject(object: THREE.Object3D) {
 
 export class InstrumentScene {
   private scene = new THREE.Scene();
+  private labBackdrop = createLabBackdrop();
+  private reflections: THREE.WebGLRenderTarget;
+  private lighting: Lighting = defaultLighting;
   private renderer: THREE.WebGLRenderer;
   private expected?: { renderer: THREE.WebGLRenderer; host: HTMLDivElement; camera: THREE.PerspectiveCamera; horizontalFov: number; aspect: number };
   private camera = new THREE.PerspectiveCamera(38, 1, 0.001, 100);
@@ -88,18 +94,29 @@ export class InstrumentScene {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 0.9;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.reflections = createLabReflections(this.renderer);
+    this.scene.environment = this.reflections.texture;
+    this.scene.environmentIntensity = .9;
+    this.labBackdrop.visible = false;
+    this.scene.add(this.labBackdrop);
     this.renderer.domElement.setAttribute(
       "aria-label",
       "3D instrument workspace. Drag to orbit, right-drag to pan, scroll to zoom.",
     );
     this.renderer.domElement.tabIndex = 0;
     host.appendChild(this.renderer.domElement);
-    this.scene.add(new THREE.HemisphereLight(0xdce8ff, 0x75849c, 1.5));
-    const key = new THREE.DirectionalLight(0xffffff, 2);
-    key.position.set(-2, 4, 3);
+    this.scene.add(new THREE.HemisphereLight(0xf1f0e9, 0x78634b, .9));
+    const key = new THREE.DirectionalLight(0xfff9ed, 1.8);
+    key.position.set(-1.5, 2.8, 1.2);
+    key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048);
+    Object.assign(key.shadow.camera, { left: -2, right: 2, top: 2, bottom: -2, near: .1, far: 8 });
+    key.shadow.bias = -.0004; key.shadow.normalBias = .0015; key.shadow.radius = 3;
     this.scene.add(key);
-    const fill = new THREE.DirectionalLight(0xb4cdff, 1.2);
-    fill.position.set(3, 2, -2);
+    const fill = new THREE.DirectionalLight(0xf0f6f3, 1.1);
+    fill.position.set(1, 1.5, -.4);
     this.scene.add(fill);
     this.grid = new THREE.GridHelper(8, 80, 0x3b4b60, 0x253140);
     this.grid.position.y = -0.002;
@@ -261,9 +278,12 @@ export class InstrumentScene {
                   const glass = source.transparent;
                   return new THREE.MeshPhysicalMaterial({
                     name: source.name,
-                    color: source.color,
-                    metalness: /aluminium|deck_surface/.test(source.name) ? 0.55 : 0.12,
-                    roughness: glass ? 0.12 : source.name === "waste_black" ? 0.24 : 0.48,
+                    color: /aluminium|deck_surface/.test(source.name) ? new THREE.Color(0xb4b5af) : glass ? source.color.clone().lerp(new THREE.Color(0xffffff), source.name === "clip_blue" ? .08 : .55) : source.color,
+                    metalness: /aluminium|deck_surface/.test(source.name) ? .65 : 0,
+                    roughness: glass ? .14 : /aluminium|deck_surface/.test(source.name) ? .42 : source.name === "waste_black" ? .28 : .58,
+                    envMapIntensity: glass ? 1.1 : 1,
+                    clearcoat: glass ? .8 : 0,
+                    clearcoatRoughness: .12,
                     transparent: glass,
                     opacity: source.opacity,
                     depthWrite: !glass,
@@ -273,6 +293,8 @@ export class InstrumentScene {
                 child.material = Array.isArray(child.material)
                   ? child.material.map(finish)
                   : finish(child.material);
+                child.castShadow = true;
+                child.receiveShadow = true;
                 if (Array.isArray(child.material)
                   ? child.material.some((material) => material.transparent)
                   : child.material.transparent) child.castShadow = false;
@@ -517,6 +539,8 @@ export class InstrumentScene {
     renderer.outputColorSpace = this.renderer.outputColorSpace;
     renderer.toneMapping = this.renderer.toneMapping;
     renderer.toneMappingExposure = this.renderer.toneMappingExposure;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.setClearColor(0x101722);
     renderer.domElement.setAttribute("aria-label", "Expected image from the modeled Tiny 2 optical frame");
     host.appendChild(renderer.domElement);
@@ -524,6 +548,22 @@ export class InstrumentScene {
   }
   setExpectedLens(horizontalFov: number, aspect: number) {
     if (this.expected) { this.expected.horizontalFov = horizontalFov; this.expected.aspect = aspect; }
+  }
+  setLighting(lighting: Lighting) {
+    this.renderer.toneMappingExposure = lighting.exposure;
+    if (this.expected) this.expected.renderer.toneMappingExposure = lighting.exposure;
+    if (lighting.tint.some((value, i) => value !== this.lighting.tint[i])) {
+      const previous = this.reflections;
+      this.reflections = createLabReflections(this.renderer, lighting.tint);
+      this.scene.environment = this.reflections.texture;
+      previous.dispose();
+      this.scene.traverse(object => {
+        if (!(object instanceof THREE.Light)) return;
+        object.userData.originalColor ??= object.color.clone();
+        object.color.copy(object.userData.originalColor).multiply(new THREE.Color(...lighting.tint));
+      });
+    }
+    this.lighting = { exposure: lighting.exposure, tint: [...lighting.tint] };
   }
   captureAlignment() {
     this.renderExpectedView();
@@ -591,6 +631,12 @@ export class InstrumentScene {
     // instruments and acrylic, with no gizmos, grid, footprint or self geometry.
     const restore: [THREE.Object3D, boolean][] = [];
     const visible = (object: THREE.Object3D, value: boolean) => { restore.push([object, object.visible]); object.visible = value; };
+    const flex = this.entries.get("flex");
+    if (flex) {
+      this.labBackdrop.position.copy(flex.group.position);
+      this.labBackdrop.quaternion.copy(flex.group.quaternion);
+    }
+    visible(this.labBackdrop, !!this.workspace.flex.present);
     for (const [id, entry] of this.entries) {
       visible(entry.group, id !== "tiny2" && !!this.workspace[id].present);
       if (entry.footprint) visible(entry.footprint, false);
@@ -719,6 +765,7 @@ export class InstrumentScene {
       if (!entry.group.parent) disposeObject(entry.group);
     }
     disposeObject(this.scene);
+    this.reflections.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
     for (const entry of this.entries.values()) entry.label.remove();

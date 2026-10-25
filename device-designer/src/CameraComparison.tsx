@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Camera, Plug, Unplug } from "lucide-react";
 import type { InstrumentScene } from "./scene";
+import { defaultLighting, matchLighting, sampleFrame, type Lighting } from "./lighting-match";
 import type { Pose } from "./state";
 import { CameraAlignment, type Capture } from "./CameraAlignment";
 
-export function CameraComparison({ scene, cameraControls, fov, setFov, pose, onPose, onAngles, onSave }: {
+export function CameraComparison({ scene, cameraControls, fov, setFov, pose, onPose, onAngles, onSave, lighting, setLighting }: {
+  lighting: Lighting; setLighting: (value: Lighting) => void;
   scene: InstrumentScene | null; cameraControls: ReactNode; fov: number; setFov: (value: number) => void;
   pose: Pose; onPose: (pose: Pose) => void; onAngles: (pan: number, tilt: number) => void; onSave: () => boolean;
 }) {
@@ -42,6 +44,22 @@ export function CameraComparison({ scene, cameraControls, fov, setFov, pose, onP
     } catch (failure) { setError((failure as Error).message); }
     finally { setStarting(false); }
   }
+  function matchCurrentLighting() {
+    setError(""); setAlignmentMessage("");
+    try {
+      const frame = source === "usb" ? video.current : actualImage.current;
+      if (!scene || !frame || status !== "live") throw new Error("Connect the camera first.");
+      const expected = scene.captureAlignment().canvas;
+      setLighting(matchLighting(sampleFrame(frame), sampleFrame(expected), lighting));
+      setAlignmentMessage("Lighting matched. Save workspace to keep it.");
+      setShowControls(true);
+    } catch (failure) {
+      setError(failure instanceof DOMException && failure.name === "SecurityError"
+        ? "This stream blocks image sampling. Use USB or the local OBSBOT service, then reconnect."
+        : (failure as Error).message);
+    }
+  }
+  useEffect(() => { scene?.setLighting(lighting); }, [scene, lighting]);
   const expectedHost = useRef<HTMLDivElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const stream = useRef<MediaStream | null>(null);
@@ -119,7 +137,9 @@ export function CameraComparison({ scene, cameraControls, fov, setFov, pose, onP
       try {
         const url = new URL(serviceUrl);
         if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) throw new Error();
-        setLiveUrl(url.href); setStatus("connecting"); setDeviceLabel("OBSBOT service");
+        // Proxy the known local video service so frame sampling remains same-origin.
+        const local = ["127.0.0.1", "localhost"].includes(url.hostname) && url.port === "5100" && url.protocol === "http:";
+        setLiveUrl(local ? `/video-api${url.pathname}${url.search}` : url.href); setStatus("connecting"); setDeviceLabel("OBSBOT service");
       } catch { setError("Enter an HTTP or HTTPS camera stream URL without embedded credentials."); }
       return;
     }
@@ -147,7 +167,7 @@ export function CameraComparison({ scene, cameraControls, fov, setFov, pose, onP
   }
 
   return <section className={`camera-comparison${fullView ? " comparison-full-view" : ""}`} style={{ "--camera-aspect": aspect } as CSSProperties} aria-label="Expected and actual camera views">
-    <header><div><span className="small-label">CAMERA VIEW COMPARISON</span><h2>Camera alignment</h2></div><div className="comparison-actions"><button className="primary-action" disabled={status !== "live" || starting || !!preview} onClick={() => void startAlignment()}>{starting ? "Settling..." : "Align camera"}</button><button aria-expanded={showControls} aria-controls="comparison-camera-controls" onClick={() => setShowControls(value => !value)}>Camera controls</button><span className={`camera-status ${status}`} role="status">{status === "live" ? "Live camera" : status === "connecting" ? "Connecting..." : "Camera disconnected"}</span>{status === "live" && <>
+    <header><div><span className="small-label">CAMERA VIEW COMPARISON</span><h2>Camera alignment</h2></div><div className="comparison-actions"><button disabled={status !== "live" || starting || !!capture} title="Estimate brightness and color from the current frame. Align the camera first." onClick={matchCurrentLighting}>Match lighting</button>{JSON.stringify(lighting) !== JSON.stringify(defaultLighting) && <button title="Restore the reference lab lighting" onClick={() => { setLighting(defaultLighting); setAlignmentMessage("Lighting reset. Save workspace to keep it."); }}>Reset lighting</button>}<button className="primary-action" disabled={status !== "live" || starting || !!preview} onClick={() => void startAlignment()}>{starting ? "Settling..." : "Align camera"}</button><button aria-expanded={showControls} aria-controls="comparison-camera-controls" onClick={() => setShowControls(value => !value)}>Camera controls</button><span className={`camera-status ${status}`} role="status">{status === "live" ? "Live camera" : status === "connecting" ? "Connecting..." : "Camera disconnected"}</span>{status === "live" && <>
       <button onClick={() => setExpanded(value => !value)}>{fullView ? "Back to workspace" : "Full view"}</button>
       {fullView && <button onClick={disconnect}><Unplug size={14}/>Disconnect</button>}
     </>}</div></header>
