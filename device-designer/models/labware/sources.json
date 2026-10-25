@@ -11,8 +11,10 @@
     "opentrons_flex_96_filtertiprack_1000ul.json": "b3a64cf8e7bc6bae1c3023be29c640732f137c0158024e440e28b45b58758648",
     "opentrons_flex_96_filtertiprack_200ul.json": "98ef0afc92fe95ca703183318b929b7536e1412f390497f59d73c30bf6ddece5",
     "opentrons_flex_96_filtertiprack_50ul.json": "d718287e99b1e60ab3b41c9102fcc957221b7738bebbd9c765a67d0b00b9bfd9",
-    "nest_96_wellplate_2ml_deep.json": "fcd83ab9c43f204c2553e35456d4d7d63a92185e416b63e5e4b4a78e31985eb0"
+    "nest_96_wellplate_2ml_deep.json": "fcd83ab9c43f204c2553e35456d4d7d63a92185e416b63e5e4b4a78e31985eb0",
+    "corning_96_wellplate_360ul_flat.json": "dcdb3196e29a208153521837e7ec4b1795ac549f01ad5e0ea0c084eb16825a4c"
   },
+  "corningPlateSource": "opentrons-shared-data 10.1.0 (PyPI), labware/definitions/2/corning_96_wellplate_360ul_flat/2.json; the version loaded by the deck-check protocol.",
   "photoEvidence": {
     "yellowRacks": "Label reads Opentrons FLEX 200 uL Filter Tip. Exact family identified.",
     "D2": "Open clear rectangular labware; reservoir or lid/base remains uncertain. NEST 195 mL is only a candidate.",

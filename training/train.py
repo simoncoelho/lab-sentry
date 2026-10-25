@@ -24,6 +24,7 @@ def main():
     parser.add_argument('--reuse-checkpoints', action='store_true', help='Validate existing completed checkpoints instead of retraining them')
     args = parser.parse_args()
     from dataset import prepare
+    from inference_device import training_device
     from camera_augmentation import camera_augmentations, augmentation_metadata
     from ultralytics import YOLO, settings
     import torch
@@ -37,10 +38,11 @@ def main():
     write_status(status_path, status)
     if os.name == 'nt': ctypes.windll.kernel32.SetThreadExecutionState(0x80000001)
     try:
-        if not torch.cuda.is_available(): raise RuntimeError('CUDA unavailable: refusing unintended CPU training')
-        # Exercise a CUDA kernel rather than trusting discovery alone (Blackwell).
-        (torch.ones(8, device='cuda') * 2).sum().item()
-        status['gpu'] = torch.cuda.get_device_name(0)
+        device = training_device()
+        if device is None: raise RuntimeError('No CUDA or Apple GPU: refusing unintended CPU training')
+        # Exercise a GPU kernel rather than trusting discovery alone (Blackwell).
+        (torch.ones(8, device='cuda' if device == 0 else device) * 2).sum().item()
+        status['gpu'] = torch.cuda.get_device_name(0) if device == 0 else 'Apple GPU (MPS)'
         status['audit'] = prepare(args.dataset, run_dir / 'data')
         if args.real_reference:
             import shutil
@@ -84,18 +86,18 @@ def main():
                 write_status(status_path, status)
             model.add_callback('on_fit_epoch_end', progress)
             if not (args.reuse_checkpoints and best.exists()):model.train(data=str(run_dir / 'data' / task / 'data.yaml'), project=str(run_dir), name=task,
-                epochs=args.epochs, patience=25, imgsz=args.size, batch=8, device=0, workers=0,
+                epochs=args.epochs, patience=25, imgsz=args.size, batch=8, device=device, workers=0,
                 optimizer='AdamW', lr0=.001, seed=42, deterministic=True, cache=False,
                 mosaic=0, mixup=0, copy_paste=0, fliplr=0, flipud=0, degrees=0,
                 translate=.01, scale=.03, hsv_h=0 if args.no_camera_noise else .008, hsv_s=0 if args.no_camera_noise else .12, hsv_v=0 if args.no_camera_noise else .15,
                 augmentations=camera_augmentations() if not args.no_camera_noise else [],
                 plots=True, save=True, verbose=False, exist_ok=False)
             best = run_dir / task / 'weights' / 'best.pt'
-            metrics = YOLO(str(best)).val(data=str(run_dir / 'data' / task / 'data.yaml'), imgsz=args.size, device=0, workers=0, plots=True)
+            metrics = YOLO(str(best)).val(data=str(run_dir / 'data' / task / 'data.yaml'), imgsz=args.size, device=device, workers=0, plots=True)
             status['models'][task] = {'weights': str(best), 'metrics': {k:float(v) for k,v in metrics.results_dict.items()}, 'classes': metrics.names}
             status['models'][task]['perClass']=metrics.summary()
             if (run_dir/'data'/task/'images/test').exists():
-                test=YOLO(str(best)).val(data=str(run_dir/'data'/task/'data.yaml'),split='test',imgsz=args.size,device=0,workers=0,plots=True,project=str(run_dir),name=f'{task}-test')
+                test=YOLO(str(best)).val(data=str(run_dir/'data'/task/'data.yaml'),split='test',imgsz=args.size,device=device,workers=0,plots=True,project=str(run_dir),name=f'{task}-test')
                 status['models'][task]['testMetrics']={k:float(v) for k,v in test.results_dict.items()}
                 status['models'][task]['testPerClass']=test.summary()
             write_status(status_path, status)

@@ -1,7 +1,7 @@
 """Serial dilution across row A of a 96-well plate with an 8-channel pipette.
 
 Rebuilt from the robot's analysis of the original test_opentron_file.py, with
-the deck rearranged: reservoir D3 -> D2, tip racks D2/C2 -> B3/C3. Every
+the deck rearranged: plate D1 -> C2, reservoir D3 -> D2, tip racks D2/C2 -> B3/C3. Every
 volume, height and flow rate matches the original run step for step.
 """
 from opentrons import protocol_api
@@ -18,7 +18,7 @@ PLATE_ASPIRATE_Z = -7.67
 def run(protocol: protocol_api.ProtocolContext):
     tips_1 = protocol.load_labware("opentrons_flex_96_filtertiprack_200ul", "B3")
     tips_2 = protocol.load_labware("opentrons_flex_96_filtertiprack_200ul", "C3")
-    plate = protocol.load_labware("corning_96_wellplate_360ul_flat", "D1")
+    plate = protocol.load_labware("corning_96_wellplate_360ul_flat", "C2")
     reservoir = protocol.load_labware("nest_12_reservoir_15ml", "D2")
     pipette = protocol.load_instrument("flex_8channel_1000", "left", tip_racks=[tips_1, tips_2])
     pipette.flow_rate.aspirate = pipette.flow_rate.dispense = pipette.flow_rate.blow_out = FLOW

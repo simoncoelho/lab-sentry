@@ -46,4 +46,4 @@ if __name__ == '__main__':
     parser.add_argument('--port', type=int, default=5103)
     args = parser.parse_args()
     advertised_url = f'http://{args.host}:{args.port}/api/v1/deck-state'
-    uvicorn.run(app, host=args.host, port=args.port)
+    uvicorn.run(app, host=args.host, port=args.port, timeout_graceful_shutdown=3)  # SSE streams never finish
