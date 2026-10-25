@@ -36,7 +36,7 @@ function FrameImage({ frame, ...props }: { frame: DatasetFrame } & React.ImgHTML
 
 const contextKey = (context: SavedWorkspace) => JSON.stringify({ workspace: context.workspace, view: context.view, classifier: context.classifier });
 
-export function DatasetGenerator({ scene, context, onProgress }: { scene: InstrumentScene | null; context: SavedWorkspace; onProgress?: (progress: { running: boolean; count: number; target: number }) => void }) {
+export function DatasetGenerator({ scene, context, onProgress, initialRunId, onOpenRun }: { initialRunId?: string; onOpenRun?: (run: DatasetRun) => void; scene: InstrumentScene | null; context: SavedWorkspace; onProgress?: (progress: { running: boolean; count: number; target: number }) => void }) {
 
   const design = context.classifier!;
 
@@ -103,7 +103,7 @@ export function DatasetGenerator({ scene, context, onProgress }: { scene: Instru
 
       setRuns(saved);
 
-      const match = saved.find(r => contextKey(r.context) === contextKey(initialContext.current));
+      const match = initialRunId ? saved.find(r => r.id === initialRunId && contextKey(r.context) === contextKey(initialContext.current)) : saved.find(r => contextKey(r.context) === contextKey(initialContext.current));
 
       if (match) await restoreRun(match);
 
@@ -384,7 +384,7 @@ export function DatasetGenerator({ scene, context, onProgress }: { scene: Instru
 
       {!!missing.length && <p className="classifier-note">No asset yet: {missing.map(c => c.name).join(', ')}.</p>}
 
-      <div className="dataset-runs"><h2>Saved runs</h2><select aria-label="Saved dataset run" disabled={running || loading} value={run?.id ?? ''} onChange={e => { const found = runs.find(r => r.id === e.target.value); if (found) void restoreRun(found).catch(e => setError(e.message)); }}><option value="">New run</option>{runs.map(r => <option key={r.id} value={r.id}>{new Date(r.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} · {r.split} · {r.target} images</option>)}</select><button disabled={running} onClick={() => { setRun(null); setCameraRange(fixedRange()); setFrames([]); setSelected(null); setNotes([]); setFeedback(''); setStatus('New run · previous images remain saved'); setError(''); }}>New run</button></div>
+      <div className="dataset-runs"><h2>Saved runs</h2><select aria-label="Saved dataset run" disabled={running || loading} value={run?.id ?? ''} onChange={e => { const found = runs.find(r => r.id === e.target.value); if (found) { if (onOpenRun) onOpenRun(found); else void restoreRun(found).catch(e => setError(e.message)); } }}><option value="">New run</option>{runs.map(r => <option key={r.id} value={r.id}>{new Date(r.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} · {r.split} · {r.target} images</option>)}</select><button disabled={running} onClick={() => { setRun(null); setCameraRange(fixedRange()); setFrames([]); setSelected(null); setNotes([]); setFeedback(''); setStatus('New run · previous images remain saved'); setError(''); }}>New run</button></div>
 
     </aside></div>
 

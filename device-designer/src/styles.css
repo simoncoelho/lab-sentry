@@ -1960,3 +1960,19 @@ svg {
 /* Use the workflow button palette, including hover, in the training phase. */
 .training-panel button:hover:not(:disabled) { background:#222d3d; border-color:#566881; color:#fff; }
 .training-panel button.primary-action:hover:not(:disabled) { background:#c2d9fa; border-color:#aac8f3; color:#121c2a; }
+.workspace-library-dialog { width:min(760px,92vw); max-height:85dvh; padding:22px; border:1px solid #354053; border-radius:12px; background:#10151d; color:#d8dde7; }
+.workspace-library-dialog::backdrop { background:#060b12b8; }
+.workspace-library-dialog header,.workspace-library-dialog footer,.workspace-library-tools { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.workspace-library-dialog h2 { font-size:19px; margin:0 0 6px; }
+.workspace-library-dialog p,.workspace-library-dialog footer { font-size:11px; color:var(--muted); }
+.workspace-library-tools { margin:22px 0 14px; flex-wrap:wrap; }
+.workspace-library-tools > div { display:flex; gap:6px; }
+.workspace-library-tools button[aria-pressed=true] { background:#1b2b43; border-color:#4d6c98; color:#b5d0ff; }
+.workspace-library-tools input { padding:8px 10px; border:1px solid var(--border); background:#111721; color:#d8dde7; border-radius:5px; width:180px; }
+.workspace-library-list { max-height:48dvh; overflow:auto; display:grid; gap:8px; padding:2px; }
+.workspace-library-row { width:100%; padding:14px; justify-content:space-between; text-align:left; min-height:66px; }
+.workspace-library-row > span { display:grid; gap:7px; }
+.workspace-library-row strong { font-weight:500; font-size:12px; }
+.workspace-library-row small,.workspace-library-row time { font-size:10px; color:var(--muted); }
+.workspace-library-dialog footer { border-top:1px solid var(--border); margin-top:18px; padding-top:14px; }
+.workspace-library-dialog [role=alert] { color:#f0ad9d; margin-bottom:12px; }

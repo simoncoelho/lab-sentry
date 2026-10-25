@@ -26,6 +26,8 @@ import { STORAGE_KEY, snapshot, parseWorkspace, matchesSaved, type SavedWorkspac
 import { defaultLighting, type Lighting } from "./lighting-match";
 import { ClassifierDesigner } from "./ClassifierDesigner";
 import { DatasetGenerator } from "./DatasetGenerator";
+import { WorkspaceLibrary } from './WorkspaceLibrary';
+import { rememberWorkspace } from './workspace-history';
 import { TrainingPanel } from "./TrainingPanel";
 import { createClassifier, classifierIssues, type ClassifierDesign } from "./classifier";
 import { CameraComparison } from "./CameraComparison";
@@ -181,6 +183,9 @@ function restoreSaved(): { saved: SavedWorkspace | null; error: string } {
 
 export default function App() {
   const [restored] = useState(restoreSaved);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [openedRun, setOpenedRun] = useState<string>();
+  const [workspaceRevision, setWorkspaceRevision] = useState(0);
   const [saved, setSaved] = useState<SavedWorkspace | null>(restored.saved);
   const [workspaceName, setWorkspaceName] = useState(restored.saved?.name || "My lab workspace");
   const [cameraPtz, setCameraPtz] = useState<SavedWorkspace['view']['cameraPtz']>(restored.saved?.view.cameraPtz);
@@ -353,6 +358,7 @@ export default function App() {
   function saveSetup(continueToCalibration = false) {
     const next = snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting, ...(cameraPtz ? { cameraPtz } : {}) }, classifier);
     try {
+      rememberWorkspace(next);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       setSaved(next);
       setSaveError("");
@@ -363,6 +369,22 @@ export default function App() {
       }
       return true;
     } catch { setSaveError("Saving failed. Your setup is still here. Export it as a file, or free browser storage and try again."); return false; }
+  }
+  function openSavedWorkspace(next: SavedWorkspace, runId?: string) {
+    try {
+      // Preserve even an unsaved draft before switching to a different setup.
+      rememberWorkspace(snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting, ...(cameraPtz ? { cameraPtz } : {}) }, classifier));
+      rememberWorkspace(next);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      setSaved(next); setWorkspace(structuredClone(next.workspace)); setWorkspaceName(next.name);
+      setAcrylicVisible(next.view.acrylicVisible); setGrid(next.view.grid);
+      setHorizontalFov(next.view.horizontalFov ?? 70); setLighting(next.view.lighting ?? defaultLighting);
+      setCameraPtz(next.view.cameraPtz); setClassifier(next.classifier);
+      setMounting(false); setIsolated(false); setReference(null); setImageError(''); setSaveError('');
+      setSelected(instruments.find(i => next.workspace[i.id].present)?.id || 'flex');
+      setOpenedRun(runId); setWorkspaceRevision(value => value + 1);
+      setPhase(runId && next.classifier ? 'dataset' : 'setup'); setLibraryOpen(false);
+    } catch (e) { setSaveError(`Could not open setup: ${(e as Error).message}`); }
   }
   function openClassifier() {
     if (!saveSetup()) return;
@@ -458,6 +480,7 @@ export default function App() {
           <button aria-current={phase === 'training' ? 'step' : undefined} disabled={!classifier} onClick={() => setPhase('training')}><span>05</span> Train & run</button>
         </nav>
         <div className="workflow-save">
+          <button disabled={datasetProgress.running} onClick={() => setLibraryOpen(true)}>Open saved</button>
           <span className={clean ? "saved-state" : "draft-state"} role="status">{clean ? "Saved on this browser" : saved ? "Unsaved changes" : "Not saved yet"}</span>
           {phase === "setup" ? <>
             <button disabled={!setupReady} onClick={() => saveSetup()}>Save workspace</button>
@@ -465,9 +488,10 @@ export default function App() {
           </> : <><button onClick={() => setPhase("setup")}>Edit workspace</button>{phase === "calibration" && <button className="primary-action" onClick={openClassifier}>Save & continue <ChevronRight size={14}/></button>}</>}
         </div>
       </section>
+      {libraryOpen && <WorkspaceLibrary onClose={() => setLibraryOpen(false)} onOpen={openSavedWorkspace}/>}
       {saveError && <div className="save-error" role="alert">{saveError}<button onClick={() => setSaveError("")} aria-label="Dismiss save error"><X size={13}/></button></div>}
       {phase === "classifier" && classifier && <ClassifierDesigner design={classifier} onChange={setClassifier} onSave={() => saveSetup()} onExport={exportClassifier} clean={clean} workspaceName={workspaceName}/>}
-      {(phase === 'dataset' || phase === 'training') && classifier && <DatasetGenerator onProgress={setDatasetProgress} scene={scene.current} context={snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting, ...(cameraPtz ? { cameraPtz } : {}) }, classifier)}/>}
+      {(phase === 'dataset' || phase === 'training') && classifier && <DatasetGenerator key={workspaceRevision} initialRunId={openedRun} onOpenRun={run => openSavedWorkspace(run.context, run.id)} onProgress={setDatasetProgress} scene={scene.current} context={snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting, ...(cameraPtz ? { cameraPtz } : {}) }, classifier)}/>}
       {phase === 'training' && classifier && <TrainingPanel context={snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting, ...(cameraPtz ? { cameraPtz } : {}) }, classifier)}/>}
       {phase === "setup" ? <aside className="library">
         <div className="panel-heading">
