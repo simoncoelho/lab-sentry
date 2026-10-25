@@ -416,4 +416,6 @@ if __name__=='__main__':
 
     import uvicorn
 
-    uvicorn.run(app,host='127.0.0.1',port=5102)
+    # Open SSE streams never finish, so an unbounded graceful shutdown would hang
+    # and leave an orphan serving stale state to existing clients.
+    uvicorn.run(app,host='127.0.0.1',port=5102,timeout_graceful_shutdown=3)
