@@ -52,6 +52,21 @@ def resolve_slots(objects, observations, polygons, templates, confidence=.5):
         obj['slot']=slot
     return [result[s] for s in SLOTS]
 
+def alignment_quality(h, src, dst, mask):
+    """Accept moderate PTZ drift only when landmarks support a stable correction."""
+    corners=np.float32([[[80,60],[560,60],[560,330],[80,330]]])
+    moved=cv2.perspectiveTransform(corners,h)
+    drift=float(np.max(np.linalg.norm(moved-corners,axis=2)))
+    inliers=mask.ravel().astype(bool)
+    count=int(inliers.sum())
+    projected=cv2.perspectiveTransform(src.reshape(1,-1,2),h)[0]
+    error=float(np.median(np.linalg.norm(projected[inliers]-dst[inliers],axis=1))) if count else float('inf')
+    span=np.ptp(src[inliers],axis=0) if count else np.zeros(2)
+    supported=count>=16 and count/len(src)>=.45 and error<=2.5 and span[0]>=160 and span[1]>=90
+    ok=bool(np.isfinite(h).all() and drift<72 and (drift<24 or supported))
+    return {'ok':ok,'driftPixels':round(drift,1),'inliers':count,
+            'reason':'matched; PTZ drift corrected' if ok else 'camera view changed'}
+
 class Runtime:
     def __init__(self):
         self.lock=threading.Lock(); self.stop_event=threading.Event(); self.thread=None
@@ -118,11 +133,9 @@ class Runtime:
                                 src=np.float32([refkp[m.queryIdx].pt for m in good]);dst=np.float32([kp[m.trainIdx].pt for m in good])
                                 h,mask=cv2.findHomography(src,dst,cv2.RANSAC,3)
                                 if h is not None and mask is not None and mask.sum()>=12:
-                                    corners=np.float32([[[80,60],[560,60],[560,330],[80,330]]]);moved=cv2.perspectiveTransform(corners,h)
-                                    drift=float(np.max(np.linalg.norm(moved-corners,axis=2)))
-                                    alignment={'ok':drift<24,'driftPixels':round(drift,1),'inliers':int(mask.sum()),'reason':'matched; small PTZ drift corrected' if drift<24 else 'camera view changed'}
+                                    alignment=alignment_quality(h,src,dst,mask)
                                     if alignment['ok']:view_transform=h
-                        # Account for small PTZ settling differences before using fixed-view geometry.
+                        # Correct supported PTZ drift before using fixed-view geometry.
                         inference_image=cv2.warpPerspective(cv2.resize(image,(640,360)),np.linalg.inv(view_transform),(640,360)) if view_transform is not None else image
                         observed_gray=cv2.GaussianBlur(cv2.cvtColor(cv2.resize(inference_image,(640,360)),cv2.COLOR_BGR2GRAY),(5,5),0)
                         if previous_gray is None or float(np.mean(cv2.absdiff(observed_gray,previous_gray)>25))>.025:last_change=last
@@ -132,7 +145,16 @@ class Runtime:
                         for task,model in models.items():
                             pred=model.predict(inference_image,imgsz=960,conf=.25,device=0,verbose=False)[0]
                             detections[task]=[{'box':b,'confidence':float(c),'label':pred.names[int(k)]} for b,c,k in zip(pred.boxes.xyxyn.cpu().tolist(),pred.boxes.conf.cpu().tolist(),pred.boxes.cls.cpu().tolist())]
-                        slots=resolve_slots(detections['labware'],detections['slots'],polygons,templates) if alignment['ok'] else unknown(alignment['reason'])
+                        observations=detections['slots']
+                        if view_transform is not None:
+                            # Mask slot-only evidence for positions partly outside the actual camera frame.
+                            visible_slots={}
+                            for slot, points in polygons.items():
+                                live=cv2.perspectiveTransform(np.float32([[[x*640,y*360] for x,y in points]]),view_transform)[0]
+                                if all(0<=x<=640 and 0<=y<=360 for x,y in live):visible_slots[slot]=points
+                            slots=resolve_slots(detections['labware'],observations,visible_slots,templates) if alignment['ok'] else unknown(alignment['reason'])
+                        else:
+                            slots=unknown(alignment['reason'])
                         height,width=image.shape[:2]
                         for obj in detections['labware']:
                             box=obj['box']
