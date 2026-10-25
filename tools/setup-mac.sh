@@ -22,7 +22,8 @@ echo "Installing Python and CPU inference dependencies (first setup may take sev
 [ -x "$PY" ] || "$UV" venv --python 3.13 .runtime/python
 "$UV" pip install --python "$PY" torch==2.11.0 torchvision==0.26.0
 "$UV" pip install --python "$PY" -r training/requirements-cpu.lock.txt
-"$UV" pip install --python "$PY" pyobjc-framework-AVFoundation pyusb libusb-package "nodejs-wheel-binaries>=24,<25"
+"$UV" pip install --python "$PY" pyobjc-framework-AVFoundation pyobjc-framework-CoreMedia pyobjc-framework-Quartz \
+  pyobjc-framework-libdispatch pyusb libusb-package "nodejs-wheel-binaries>=24,<25"
 # Node.js and npm from nodejs-wheel-binaries live in the private environment.
 NODE_HOME=$("$PY" -c 'import nodejs_wheel, os; print(os.path.dirname(nodejs_wheel.__file__))')
 export PATH="$NODE_HOME/bin:$PATH"

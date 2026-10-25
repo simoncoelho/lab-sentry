@@ -1,8 +1,10 @@
 """macOS replacement for the Windows camera services (obsbot-control video on
 5100 and camera-bridge controls on 5101), with the same HTTP API.
 
-Video: AVFoundation capture through OpenCV, served as MJPEG at
+Video: AVFoundation capture (as Photo Booth does), served as MJPEG at
   GET http://127.0.0.1:5100/obsbot/video.mjpeg?orientation=none
+  OpenCV's own macOS capture receives only black frames from the OBSBOT Tiny SE,
+  so OpenCV is used here just to resize and JPEG-encode.
 Controls: standard USB Video Class camera-terminal requests (absolute pan/tilt
 and zoom), served at http://127.0.0.1:5101 as /state, /connect, /target, /stop.
 
@@ -19,20 +21,25 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
 import cv2
+import numpy as np
 
-WIDTH, HEIGHT, FPS, JPEG_QUALITY = 640, 360, 30, 85
+WIDTH, HEIGHT, JPEG_QUALITY = 640, 360, 85
+STALL_SECONDS = 3  # restart the capture session after this long without a frame
+RECOVERY_SECONDS = 15  # keep restarting a stalled camera this long before failing
 ALLOWED_ORIGINS = {"http://127.0.0.1:5173", "http://localhost:5173"}
 
 
-def camera_names():
-    """Video devices in AVFoundation order, which is the order OpenCV indexes them."""
+def camera_devices():
     import AVFoundation
-    devices = AVFoundation.AVCaptureDevice.devicesWithMediaType_(AVFoundation.AVMediaTypeVideo)
-    return [str(d.localizedName()) for d in devices]
+    return list(AVFoundation.AVCaptureDevice.devicesWithMediaType_(AVFoundation.AVMediaTypeVideo))
+
+
+def camera_names():
+    return [str(d.localizedName()) for d in camera_devices()]
 
 
 def ensure_camera_access():
-    """Ask macOS for camera permission on the main thread (OpenCV can't from capture threads)."""
+    """Ask macOS for camera permission on the main thread (the prompt needs a run loop)."""
     import AVFoundation
     from Foundation import NSDate, NSRunLoop
     media = AVFoundation.AVMediaTypeVideo
@@ -46,18 +53,54 @@ def ensure_camera_access():
     if status != 3:
         print("Camera access is not allowed. Enable it for this terminal app in System Settings > "
               "Privacy & Security > Camera, then restart.", flush=True)
-    os.environ["OPENCV_AVFOUNDATION_SKIP_AUTH"] = "1"
 
 
 def find_camera():
+    """(AVCaptureDevice, name): LAB_SENTRY_CAMERA by index or name, else the first physical OBSBOT."""
     wanted = os.environ.get("LAB_SENTRY_CAMERA", "")
-    names = camera_names()
-    if wanted.isdigit():
-        return int(wanted), names[int(wanted)] if int(wanted) < len(names) else f"camera {wanted}"
-    for i, name in enumerate(names):
+    devices = camera_devices()
+    names = [str(d.localizedName()) for d in devices]
+    if wanted.isdigit() and int(wanted) < len(devices):
+        return devices[int(wanted)], names[int(wanted)]
+    for device, name in zip(devices, names):
         if (wanted.lower() in name.lower() if wanted else "obsbot" in name.lower()) and "virtual" not in name.lower():
-            return i, name
+            return device, name
     raise RuntimeError(f"No physical OBSBOT camera found. Connect it by USB. Cameras seen: {', '.join(names) or 'none'}")
+
+
+_receiver_class = None
+
+
+def frame_receiver(callback):
+    """AVCaptureVideoDataOutput delegate that hands each BGRA frame to callback as a BGR array."""
+    global _receiver_class
+    if _receiver_class is None:
+        import CoreMedia
+        import objc
+        import Quartz
+        from Foundation import NSObject
+
+        class FrameReceiver(NSObject):
+            def initWithCallback_(self, cb):
+                self = objc.super(FrameReceiver, self).init()
+                self.cb = cb
+                return self
+
+            def captureOutput_didOutputSampleBuffer_fromConnection_(self, output, buffer, connection):
+                image = CoreMedia.CMSampleBufferGetImageBuffer(buffer)
+                Quartz.CVPixelBufferLockBaseAddress(image, 0)
+                try:
+                    height, width = Quartz.CVPixelBufferGetHeight(image), Quartz.CVPixelBufferGetWidth(image)
+                    row = Quartz.CVPixelBufferGetBytesPerRow(image)
+                    raw = Quartz.CVPixelBufferGetBaseAddress(image).as_buffer(row * height)
+                    bgra = np.frombuffer(raw, np.uint8).reshape(height, row)[:, :width * 4].reshape(height, width, 4)
+                    frame = cv2.cvtColor(bgra, cv2.COLOR_BGRA2BGR)  # copies before the buffer is unlocked
+                finally:
+                    Quartz.CVPixelBufferUnlockBaseAddress(image, 0)
+                self.cb(frame)
+
+        _receiver_class = FrameReceiver
+    return _receiver_class.alloc().initWithCallback_(callback)
 
 
 class Video:
@@ -66,7 +109,7 @@ class Video:
     def __init__(self):
         self.cond = threading.Condition()
         self.frame, self.sequence, self.clients, self.error = None, 0, 0, None
-        self.thread = None
+        self.thread, self.last_frame_at = None, 0
 
     def subscribe(self):
         with self.cond:
@@ -80,7 +123,7 @@ class Video:
         with self.cond:
             self.clients -= 1
 
-    def next_frame(self, seen, timeout=5):
+    def next_frame(self, seen, timeout=RECOVERY_SECONDS + 5):
         with self.cond:
             self.cond.wait_for(lambda: self.sequence != seen or self.error, timeout)
             if self.error:
@@ -89,18 +132,45 @@ class Video:
                 raise TimeoutError("Camera produced no frames")
             return self.frame, self.sequence
 
+    def _on_frame(self, image):
+        """Called on the capture queue for every camera frame."""
+        self.last_frame_at = time.time()
+        if image.shape[1] != WIDTH or image.shape[0] != HEIGHT:
+            image = cv2.resize(image, (WIDTH, HEIGHT), interpolation=cv2.INTER_AREA)
+        ok, jpeg = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
+        if ok:
+            with self.cond:
+                self.frame, self.sequence = jpeg.tobytes(), self.sequence + 1
+                self.cond.notify_all()
+
+    def _start(self, device, name):
+        import AVFoundation as AV
+        import libdispatch
+        import Quartz
+        session = AV.AVCaptureSession.alloc().init()
+        if session.canSetSessionPreset_(AV.AVCaptureSessionPreset1280x720):
+            session.setSessionPreset_(AV.AVCaptureSessionPreset1280x720)  # 16:9 like 640x360; less to resize
+        device_input, error = AV.AVCaptureDeviceInput.deviceInputWithDevice_error_(device, None)
+        if device_input is None or not session.canAddInput_(device_input):
+            raise RuntimeError(f"Could not open {name}: {error.localizedDescription() if error else 'in use'}. Allow camera "
+                               "access for this terminal app (System Settings > Privacy & Security > Camera).")
+        session.addInput_(device_input)
+        output = AV.AVCaptureVideoDataOutput.alloc().init()
+        output.setVideoSettings_({Quartz.kCVPixelBufferPixelFormatTypeKey: Quartz.kCVPixelFormatType_32BGRA})
+        output.setAlwaysDiscardsLateVideoFrames_(True)
+        receiver = frame_receiver(self._on_frame)  # the output holds its delegate weakly: keep a reference
+        output.setSampleBufferDelegate_queue_(receiver, libdispatch.dispatch_queue_create(b"lab-sentry-camera", None))
+        session.addOutput_(output)
+        session.startRunning()
+        return session, receiver
+
     def _capture(self):
-        cap = None
+        session = None
         try:
-            index, name = find_camera()
-            cap = cv2.VideoCapture(index, cv2.CAP_AVFOUNDATION)
-            if not cap.isOpened():
-                raise RuntimeError(f"Could not open {name}. Allow camera access for this terminal app "
-                                   "(System Settings > Privacy & Security > Camera) and close other apps using it.")
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
-            cap.set(cv2.CAP_PROP_FPS, FPS)
-            idle_since = None
+            # The OBSBOT sleeps as soon as nothing streams; while waking it can
+            # stall. Restart the session after a stall and keep clients
+            # connected; give up only after RECOVERY_SECONDS without frames.
+            last_good, idle_since = time.time(), None
             while True:
                 with self.cond:
                     if self.clients <= 0:
@@ -109,23 +179,27 @@ class Video:
                             return
                     else:
                         idle_since = None
-                ok, image = cap.read()
-                if not ok:
-                    raise RuntimeError(f"{name} stopped delivering frames")
-                if image.shape[1] != WIDTH or image.shape[0] != HEIGHT:
-                    image = cv2.resize(image, (WIDTH, HEIGHT), interpolation=cv2.INTER_AREA)
-                ok, jpeg = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
-                if ok:
-                    with self.cond:
-                        self.frame, self.sequence = jpeg.tobytes(), self.sequence + 1
-                        self.cond.notify_all()
+                if session is None:
+                    device, name = find_camera()
+                    self.last_frame_at = 0
+                    session, receiver = self._start(device, name)
+                    started_at = time.time()
+                    print(f"video: started {name}", flush=True)
+                last_good = max(last_good, self.last_frame_at)
+                if time.time() - max(self.last_frame_at, started_at) > STALL_SECONDS:
+                    session.stopRunning()
+                    session = None
+                    if time.time() - last_good > RECOVERY_SECONDS:
+                        raise RuntimeError(f"{name} stopped delivering frames")
+                    print(f"video: no frame from {name} for {STALL_SECONDS} s; restarting", flush=True)
+                time.sleep(0.2)
         except Exception as e:
             with self.cond:
                 self.error = str(e)
                 self.cond.notify_all()
         finally:
-            if cap is not None:
-                cap.release()
+            if session is not None:
+                session.stopRunning()
 
 
 # USB Video Class requests (UVC 1.5, section 4.2.2.1)
