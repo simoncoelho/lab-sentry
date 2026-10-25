@@ -1,7 +1,7 @@
 import { nearestHitQuery } from './nearest-hit';
 import * as THREE from "three";
 import { deckSlots } from "./classifier";
-import { liveLabware } from "./live-labware";
+import { detailedLiveLabware, liveLabware } from "./live-labware";
 import { disposeAsset } from "./dataset-assets";
 import { inferSlotState, type SlotState } from "./deck-state";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -577,7 +577,14 @@ export class InstrumentScene {
     const templates = new Map<string, THREE.Group>();
     for(const kind of ['tiprack','plate','reservoir'] as const)templates.set(kind,liveLabware(kind));
     const assetIds: Record<string,string> = { 'tip rack':'tiprack', microplate:'plate', reservoir:'reservoir' };
-    let frame=0, disposed=false;
+    let frame=0, disposed=false, lastSlots: Observation[]=[];
+    // Swap each silhouette for its detailed twin once loaded; a failed load keeps the silhouette.
+    for(const kind of ['tiprack','plate','reservoir'] as const)void detailedLiveLabware(kind).then(detailed=>{
+      if(disposed){disposeAsset(detailed);return;}
+      for(const label of labels.values())if(label.assetId===kind){label.object?.removeFromParent();label.object=undefined;label.assetId=undefined;}
+      const previous=templates.get(kind); templates.set(kind,detailed); if(previous)disposeAsset(previous);
+      update(lastSlots);
+    }).catch(error=>console.warn(`Live ${kind} model unavailable; using the simple shape.`,error));
     for (const slot of deckSlots) {
       const link = model.getObjectByName(`slot_${slot.toLowerCase()}`); if (!link) continue;
       const canvas=document.createElement('canvas'); canvas.width=512; canvas.height=96;
@@ -586,6 +593,7 @@ export class InstrumentScene {
       mesh.position.set(0,-.045,.009); mesh.renderOrder=100; link.add(mesh); labels.set(slot,{link,mesh,canvas,texture,text:''});
     }
     const update = (slots: Observation[]) => {
+      lastSlots=slots;
       for(const [slot,label] of labels){
         const value=slots.find(s=>s.slot===slot), state=value?.state ?? 'unknown';
         const assetId=state==='occupied' ? assetIds[value?.labware?.toLowerCase() ?? ''] : undefined;

@@ -1,7 +1,21 @@
 import * as THREE from 'three';
+import type { DatasetAsset } from './dataset';
+import { loadDatasetAsset } from './dataset-assets';
 
-// Lightweight class silhouettes for the live view; training assets remain detailed.
-export function liveLabware(kind: 'tiprack' | 'plate' | 'reservoir'): THREE.Group {
+export type LiveKind = 'tiprack' | 'plate' | 'reservoir';
+
+// Digital twins of the labware the deck-check protocol loads, built from the
+// Opentrons definitions (true footprint, height and tip/well positions).
+const liveAssets: Record<LiveKind, DatasetAsset> = {
+  tiprack: { id: 'library-flex-filter-200', name: 'Flex 200 µL filter tips', kind: 'tiprack', classId: '', widthMm: 127.75, up: 'Z', definitionUrl: './models/labware/opentrons_flex_96_filtertiprack_200ul.json' },
+  plate: { id: 'live-corning-96-360', name: 'Corning 96-well 360 µL flat plate', kind: 'plate', classId: '', widthMm: 127.76, up: 'Z', definitionUrl: './models/labware/corning_96_wellplate_360ul_flat.json' },
+  reservoir: { id: 'library-nest-12', name: 'NEST 12-channel 15 mL reservoir', kind: 'reservoir', classId: '', widthMm: 127.76, up: 'Z', definitionUrl: './models/labware/nest_12_reservoir_15ml.json' },
+};
+export function detailedLiveLabware(kind: LiveKind): Promise<THREE.Group> { return loadDatasetAsset(liveAssets[kind]); }
+
+// Lightweight class silhouettes, shown until the detailed models have loaded
+// (or if a definition can't be loaded).
+export function liveLabware(kind: LiveKind): THREE.Group {
   const root = new THREE.Group();
   const shell = new THREE.MeshStandardMaterial({ color: '#a5a8ad', roughness: .65 });
   const inset = new THREE.MeshStandardMaterial({ color: '#646970', roughness: .8 });
