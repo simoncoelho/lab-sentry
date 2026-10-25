@@ -1,3 +1,4 @@
+import { nearestHitQuery } from './nearest-hit';
 import * as THREE from "three";
 import { deckSlots } from "./classifier";
 import { liveLabware } from "./live-labware";
@@ -84,6 +85,7 @@ export class InstrumentScene {
   private grid: THREE.GridHelper;
   private observer: ResizeObserver;
   private disposed = false;
+  private datasetCapture = false;
   private frame = 0;
   private selected: InstrumentId = "flex";
   private workspace?: Workspace;
@@ -676,11 +678,37 @@ export class InstrumentScene {
       },
     };
   }
+  datasetSidePose() {
+    const flex = this.entries.get('flex')?.robot;
+    if (!flex) throw new Error('Load Flex first.');
+    const alignment = this.captureAlignment();
+    const center = new THREE.Vector3();
+    for (const name of ['a1', 'a3', 'd1', 'd3']) center.add(flex.links[`slot_${name}`].getWorldPosition(new THREE.Vector3()));
+    center.multiplyScalar(.25);
+    const localCenter = flex.worldToLocal(center.clone());
+    // Right acrylic is at x=0.433 m; place the lens just inside its inner face.
+    const position = flex.localToWorld(new THREE.Vector3(.405, localCenter.y, localCenter.z + .254));
+    const camera = new THREE.PerspectiveCamera();
+    camera.position.copy(position);
+    camera.up.set(0, 1, 0);
+    camera.lookAt(center);
+    camera.updateMatrixWorld(true);
+    return alignment.pose(camera.matrixWorld);
+  }
   detachExpectedView() {
     if (!this.expected) return;
     this.expected.renderer.dispose(); this.expected.renderer.domElement.remove(); this.expected = undefined;
   }
-  async captureDataset(recipe: Recipe, assets: DatasetAsset[], templates: Map<string, THREE.Group>, slots: string[], emptyClass: string) {
+  beginDatasetCapture() {
+    this.datasetCapture = true;
+    const renderer = this.expected?.renderer, ratio = renderer?.getPixelRatio();
+    // Dataset dimensions are physical pixels, independent of display DPI.
+    renderer?.setPixelRatio(1);
+    return () => { this.datasetCapture = false; if (renderer && ratio) renderer.setPixelRatio(ratio); };
+  }
+  async captureDataset(recipe: Recipe, assets: DatasetAsset[], templates: Map<string, THREE.Group>, slots: string[], emptyClass: string, onTiming?: (phase: string, ms: number) => void) {
+    let measuredAt = performance.now();
+    const measure = (phase: string) => { const now = performance.now(); onTiming?.(phase, now - measuredAt); measuredAt = now; };
     const flex = this.entries.get('flex')?.robot;
     if (!flex || !this.expected) throw new Error('Load Flex and the camera view first.');
     const placed: THREE.Object3D[] = [], previousLighting = this.lighting;
@@ -710,6 +738,7 @@ export class InstrumentScene {
         slot.add(object); placed.push(object);
       }
       this.setLighting({ exposure: previousLighting.exposure * recipe.exposure, tint: previousLighting.tint.map((v, i) => v * (1 + recipe.warmth * (i === 0 ? 1 : i === 2 ? -1 : 0))) as [number, number, number] });
+      measure('placement');
       let detections: Detection[] = [];
       let wasteRecognized = false;
       this.renderExpectedView([1280, 720], () => {
@@ -717,6 +746,7 @@ export class InstrumentScene {
         const waste = masks.at(-1)!; wasteRecognized = waste.pixels >= 64 && !waste.review;
         detections = masks.slice(0, placed.length).map((mask, i) => ({ ...mask, slot: recipe.placements[i].slot, assetId: recipe.placements[i].assetId, classId: assets.find(a => a.id === recipe.placements[i].assetId)!.classId }));
       });
+      measure('render');
       const view = this.expected, canvas = document.createElement('canvas');
       canvas.width = 1280; canvas.height = 720;
       canvas.getContext('2d')!.drawImage(view.renderer.domElement, 0, 0, 1280, 720);
@@ -728,6 +758,7 @@ export class InstrumentScene {
         for (let p: THREE.Object3D | null = o; p && p !== flex; p = p.parent) if (!p.visible) return;
         candidates.push(o);
       });
+      const nearestHit = nearestHitQuery(candidates);
       const slotStates: SlotState[] = [];
       const annotations: Annotation[] = deckSlots.map(name => {
         const slot = flex.links[`slot_${name.toLowerCase()}`];
@@ -739,7 +770,7 @@ export class InstrumentScene {
           const p = projection(x, y);
           if (Math.abs(p.x) > 1 || Math.abs(p.y) > 1 || p.z < -1 || p.z > 1) continue;
           const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(p.x, p.y), view.camera);
-          const hit = ray.intersectObjects(candidates, false)[0];
+          const hit = nearestHit(ray);
           if (hit) {
             const point = slot.localToWorld(new THREE.Vector3(x, y, 0));
             let own = false;
@@ -755,7 +786,9 @@ export class InstrumentScene {
         slotStates.push(inferSlotState({ slot: name, inFrame: fullyInFrame, visibility: visible / 9, occupied: !!placement || name === 'A3', recognized: name === 'A3' ? wasteRecognized : !!detection && !detection.review && detection.pixels >= 64, classId: name === 'A3' ? 'fixed-waste-bin' : asset?.classId ?? null, assetId: name === 'A3' ? 'fixed-waste-bin' : asset?.id ?? null, polygon }));
         return { slot: name, classId: asset?.classId || emptyClass || null, assetId: asset?.id || null, polygon: corners.map(p => [(p.x + 1) * 640, (1 - p.y) * 360]), visibility: visible / 9, review: !fullyInFrame || visible < 7 || !(asset?.classId || emptyClass) };
       });
+      measure('labels');
       const image = await new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Could not encode the rendered image.')), 'image/png'));
+      measure('encode');
       return { image, annotations: annotations.filter(a => slots.includes(a.slot)), slotStates, slotStateVersion: 1 as const, detections, cameraMatrix: view.camera.matrixWorld.toArray() };
     } finally {
       placed.forEach(o => o.removeFromParent());
@@ -873,6 +906,7 @@ export class InstrumentScene {
   private animate = () => {
     if (this.disposed) return;
     this.frame = requestAnimationFrame(this.animate);
+    if (this.datasetCapture) return;
     if (this.goal) {
       this.camera.position.lerp(this.goal.position, 0.14);
       this.controls.target.lerp(this.goal.target, 0.14);

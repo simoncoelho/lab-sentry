@@ -494,7 +494,7 @@ export default function App() {
       {saveError && <div className="save-error" role="alert">{saveError}<button onClick={() => setSaveError("")} aria-label="Dismiss save error"><X size={13}/></button></div>}
       {phase === "serve" && <ServePanel scene={scene.current} onDetector={() => setPhase(classifier ? "training" : "setup")}/>}
       {phase === "classifier" && classifier && <ClassifierDesigner design={classifier} onChange={setClassifier} onSave={() => saveSetup()} onExport={exportClassifier} clean={clean} workspaceName={workspaceName}/>}
-      {(phase === 'dataset' || phase === 'training') && classifier && <DatasetGenerator key={workspaceRevision} initialRunId={openedRun} onOpenRun={run => openSavedWorkspace(run.context, run.id)} onProgress={setDatasetProgress} scene={scene.current} context={snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting, ...(cameraPtz ? { cameraPtz } : {}) }, classifier)}/>}
+      {(phase === 'dataset' || phase === 'training') && classifier && <DatasetGenerator key={workspaceRevision} initialRunId={openedRun} onSideView={next => { openSavedWorkspace(next); setPhase('dataset'); }} onOpenRun={run => openSavedWorkspace(run.context, run.id)} onProgress={setDatasetProgress} scene={scene.current} context={snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting, ...(cameraPtz ? { cameraPtz } : {}) }, classifier)}/>}
       {phase === 'training' && classifier && <TrainingPanel context={snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting, ...(cameraPtz ? { cameraPtz } : {}) }, classifier)}/>}
       {phase === "setup" ? <aside className="library">
         <div className="panel-heading">
@@ -621,13 +621,21 @@ export default function App() {
             if (previous.tiny2.joints.obsbot_pan_joint === joints.obsbot_pan_joint && previous.tiny2.joints.obsbot_tilt_joint === joints.obsbot_tilt_joint) return previous;
             return { ...previous, tiny2: { ...previous.tiny2, joints } };
           }); }}/>
-          <section className="camera-mount-fields"><h4>Mount position & rotation</h4>
+          <details className="camera-mount-disclosure"><summary>Mount position</summary><section className="camera-mount-fields"><h4>Position & rotation</h4>
             {(["x", "y", "z", "roll", "pitch", "yaw"] as const).map(axis => {
               const position = axis === "x" || axis === "y" || axis === "z";
               return <div className="position-row" key={axis}><label>{axis.toUpperCase()}</label><Numeric label={`Camera ${axis}`} unit={position ? "mm" : "°"} value={workspace.tiny2.pose[axis] * (position ? 1000 : 1)} min={position ? (axis === "z" ? 0 : -3000) : -180} max={position ? 3000 : 180} step={0.1} onChange={value => setWorkspace(previous => ({ ...previous, tiny2: { ...previous.tiny2, pose: { ...previous.tiny2.pose, [axis]: value / (position ? 1000 : 1) } } }))}/></div>;
             })}
-          </section>
-          <div className="camera-save"><span role="status">{clean ? "Workspace saved" : "Unsaved camera changes"}</span><button className="primary-action" disabled={clean} onClick={() => saveSetup()}>Save workspace</button>{saveError && <p role="alert">{saveError}</p>}</div>
+          </section></details>
+          <details className="camera-reference-disclosure"><summary>Reference image</summary>            <label className="file-action reference-upload">{reference ? "Replace reference image" : "Add reference image"}<input aria-label="Add camera reference image" type="file" accept="image/png,image/jpeg,image/webp" onChange={e => {
+              const file = e.target.files?.[0]; e.target.value = ""; if (!file) return;
+              if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 20000000) { setImageError("Choose a PNG, JPEG or WebP image under 20 MB."); return; }
+              setImageError(""); setReference({url: URL.createObjectURL(file), name: file.name});
+            }} /></label>
+            {imageError && <p role="alert">{imageError}</p>}
+            {reference && <figure><img src={reference.url} alt="Camera calibration reference" onError={() => { setImageError("This image could not be decoded. Choose another image."); setReference(null); }}/><figcaption>{reference.name}</figcaption><button onClick={() => setReference(null)}>Remove reference image</button></figure>}
+</details>
+          <div className="camera-save"><span role="status">{clean ? "Saved" : "Unsaved changes"}</span><button className="primary-action" disabled={clean} onClick={() => saveSetup()}>Save workspace</button>{saveError && <p role="alert">{saveError}</p>}</div>
         </>} />}
         <div className="viewport-toolbar">
           <div className="breadcrumb">
@@ -764,13 +772,6 @@ export default function App() {
             <button onClick={() => { setSelected("tiny2"); setTab("placement"); setPhase("setup"); }}>Edit camera placement</button>
             <div className="calibration-step"><Check size={16}/><div><strong>Workspace ready</strong><p>{saved?.name} is saved. Camera position and pan/tilt are included.</p></div></div>
             <div className="calibration-step"><Camera size={16}/><div><strong>Camera reference</strong><p>Optionally keep a still reference alongside the live comparison. It stays in this session.</p></div></div>
-            <label className="file-action reference-upload">{reference ? "Replace reference image" : "Add reference image"}<input aria-label="Add camera reference image" type="file" accept="image/png,image/jpeg,image/webp" onChange={e => {
-              const file = e.target.files?.[0]; e.target.value = ""; if (!file) return;
-              if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 20000000) { setImageError("Choose a PNG, JPEG or WebP image under 20 MB."); return; }
-              setImageError(""); setReference({url: URL.createObjectURL(file), name: file.name});
-            }} /></label>
-            {imageError && <p role="alert">{imageError}</p>}
-            {reference && <figure><img src={reference.url} alt="Camera calibration reference" onError={() => { setImageError("This image could not be decoded. Choose another image."); setReference(null); }}/><figcaption>{reference.name}</figcaption><button onClick={() => setReference(null)}>Remove reference image</button></figure>}
             <div className="calibration-next"><span className="small-label">NEXT: VIEW ALIGNMENT</span><p>Align the camera and lighting, then save and continue to define your classifier.</p></div>
           </div>
         ) : state.present ? (

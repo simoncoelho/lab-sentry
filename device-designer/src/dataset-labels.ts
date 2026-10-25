@@ -12,6 +12,19 @@ export function maskBounds(pixels: Uint8Array, width: number, height: number) {
   }
   return { count, box: count ? [left / width, top / height, (right - left) / width, (bottom - top) / height] as [number, number, number, number] : null };
 }
+// ID masks use exact, unfiltered linear RGB bytes; zero is background/occluders.
+export function objectMaskBounds(pixels: Uint8Array, width: number, height: number, count: number) {
+  const bounds = Array.from({ length: count }, () => ({ left: width, top: height, right: 0, bottom: 0, count: 0 }));
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    const offset = (y * width + x) * 4;
+    const id = pixels[offset] | (pixels[offset + 1] << 8) | (pixels[offset + 2] << 16);
+    const b = bounds[id - 1];
+    if (!b) continue;
+    b.count++; b.left = Math.min(b.left, x); b.right = Math.max(b.right, x + 1);
+    b.top = Math.min(b.top, height - y - 1); b.bottom = Math.max(b.bottom, height - y);
+  }
+  return bounds.map(b => ({ count: b.count, box: b.count ? [b.left / width, b.top / height, (b.right - b.left) / width, (b.bottom - b.top) / height] as [number, number, number, number] : null }));
+}
 export const detectionClasses = (design: ClassifierDesign, emptyClass: string) => design.classes.filter(c => c.id !== emptyClass);
 export function yoloLabel(frame: DatasetFrame, classIds: string[]): string | null {
   // Legacy images lack object masks. Never silently treat them as negatives.

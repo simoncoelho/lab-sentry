@@ -2008,3 +2008,88 @@ svg {
 .serve-camera-placeholder { flex:1; display:grid; place-content:center; padding:20px; min-height:220px; color:var(--muted); font-size:11px; }
 .serve-camera footer { padding:12px; font-size:10px; color:var(--muted); background:#171e29; }
 @media(max-width:850px) { .serve-visuals.with-camera { grid-template-columns:1fr; } }
+
+.dataset-batch-summary { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; margin:-6px 0 18px; color:var(--muted); font-size:11px; }
+.dataset-summary-dot { margin:0 8px; opacity:.5; }
+.dataset-progress { flex-wrap:wrap; }
+.dataset-progress .dataset-throughput { margin-left:auto; color:var(--text); font-variant-numeric:tabular-nums; }
+
+.dataset-gallery-dialog { width:min(1160px,92vw); max-height:88vh; padding:20px; border:1px solid #343e50; border-radius:14px; background:#141923; color:#edf2f8; }
+.dataset-gallery-dialog::backdrop { background:#080b12cc; backdrop-filter:blur(4px); }
+.dataset-gallery-dialog>header,.dataset-gallery-dialog>footer { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.dataset-gallery-dialog h2 { margin:0 0 6px; font-size:20px; }
+.dataset-gallery-dialog header span,.dataset-gallery-dialog footer span { font-size:12px; color:#a9b3c4; }
+.dataset-gallery-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; max-height:64vh; overflow:auto; margin:20px 0; }
+.dataset-gallery-grid button { padding:0; display:block; overflow:hidden; border-radius:8px; text-align:left; }
+.dataset-gallery-grid img { width:100%; aspect-ratio:16/9; object-fit:contain; display:block; background:#0a0e14; }
+.dataset-gallery-grid button>span { display:flex; justify-content:space-between; padding:10px; font-size:11px; }
+.dataset-gallery-grid small { color:#a9b3c4; font-size:10px; }
+.dataset-run-timing { color:#9dbfff; font-size:12px; margin:0 0 18px; }
+@media(max-width:700px) { .dataset-gallery-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+/* Calibration: the comparison is the workspace; secondary tools stay in one rail. */
+.phase-calibration > .library, .phase-calibration > .inspector { display: none; }
+.phase-calibration > .viewport { grid-column: 1 / -1; grid-row: 3; height: auto; min-height: 0; }
+.phase-calibration { grid-template-rows: 56px 68px minmax(0, 1fr) 30px; }
+.phase-calibration > .statusbar { grid-row: 4; }
+.camera-comparison { background: #0d1016; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+.camera-comparison > header { margin: 0; flex-shrink: 0; }
+.camera-comparison h2 { margin: 0; font: 600 21px 'DM Sans', sans-serif; letter-spacing: -.4px; }
+.camera-comparison .comparison-actions { gap: 6px; }
+.camera-comparison .camera-status { border: 0; background: transparent; padding: 4px 8px; }
+.camera-comparison .camera-status::before { content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: currentColor; margin-right: 7px; }
+.camera-comparison .comparison-body { flex: 1; min-height: 280px; flex-direction: row; gap: 14px; }
+.camera-comparison .comparison-views { grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; align-items: stretch; min-height: 0; }
+.camera-comparison .comparison-pane { display: flex; flex-direction: column; background: #141820; border-color: var(--border); border-radius: 10px; min-height: 0; }
+.camera-comparison .comparison-heading { padding: 12px 14px; flex-shrink: 0; }
+.camera-comparison .comparison-heading span { font-weight: 500; color: #d8dde7; }
+.camera-comparison .comparison-heading small { color: var(--muted); }
+.camera-comparison .image-well { flex: 1; min-height: 0; aspect-ratio: auto; background: #090c11; }
+.camera-comparison .comparison-pane > p { min-height: 0; margin: 0; padding: 8px 14px; }
+.camera-comparison .camera-empty { color: var(--muted); gap: 12px; }
+.camera-comparison .camera-empty strong { color: #d8dde7; font: 500 16px 'DM Sans', sans-serif; }
+.camera-comparison .camera-empty span { font-size: 10px; }
+.camera-comparison .comparison-camera-controls:not([hidden]) { display: flex; flex-direction: column; flex: 0 0 280px; max-height: none; gap: 16px; padding: 16px; background: #141820; border: 1px solid var(--border); border-radius: 10px; }
+.camera-comparison .comparison-camera-controls > header { display: flex; }
+.camera-comparison .comparison-camera-controls h3 { margin: 0; font: 500 14px 'DM Sans', sans-serif; }
+.camera-comparison .comparison-camera-controls > header button { border: 0; background: transparent; font-size: 18px; min-height: 24px; }
+.camera-comparison .hardware-controls > p:not(.hardware-label):not([role]) { display: none; }
+.camera-comparison .hardware-controls .hardware-label { margin: 0 0 10px; font-size: 10px; color: var(--muted); }
+.camera-comparison .hardware-controls .joint-control { padding: 8px 0; margin: 0; }
+.camera-comparison .comparison-camera-controls details { margin: 0; padding: 14px 0 0; border-top: 1px solid var(--border); }
+.camera-comparison .comparison-camera-controls summary { margin: 0; font-size: 11px; }
+.camera-comparison .camera-mount-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; border: 0; padding: 14px 0 0; margin: 0; }
+.camera-comparison .camera-mount-fields h4 { display: none; }
+.camera-comparison .camera-mount-fields .position-row { display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 0; grid-column: auto; grid-row: auto; }
+.camera-comparison .camera-mount-fields .numeric { width: 100%; }
+.camera-comparison .camera-mount-fields label { font-size: 9px; color: var(--muted); }
+.camera-comparison .camera-reference-disclosure .reference-upload { margin-top: 14px; }
+.camera-comparison .camera-reference-disclosure figure { margin: 10px 0 0; }
+.camera-comparison .camera-reference-disclosure img { width: 100%; }
+.camera-comparison .camera-reference-disclosure figcaption { font-size: 9px; overflow-wrap: anywhere; color: var(--muted); margin: 8px 0; }
+.camera-comparison .comparison-camera-controls .lens-control { display: flex; flex-direction: column; margin: 0; padding: 14px 0 0; border-top: 1px solid var(--border); }
+.camera-comparison .lens-control > button { align-self: flex-start; order: 3; margin-top: 14px; font-size: 10px; }
+.camera-comparison .comparison-camera-controls .camera-save { margin: auto 0 0; padding-top: 16px; align-self: stretch; }
+.camera-comparison .camera-connect { margin: 0; gap: 10px; padding: 12px 14px; background: #141820; border: 1px solid var(--border); border-radius: 8px; }
+.camera-comparison .camera-connect select, .camera-comparison .camera-connect input { background: #0d1016; border-color: var(--border); }
+.camera-comparison .camera-guidance { margin: 0; }
+.camera-comparison .camera-error { margin: 0; flex-shrink: 0; }
+.camera-comparison.comparison-full-view .camera-connect { display: none; }
+@media(max-width:1100px) {
+ .camera-comparison .comparison-body { flex-direction: column; min-height: auto; }
+ .camera-comparison .comparison-views { flex: 1 0 280px; }
+ .camera-comparison .comparison-camera-controls:not([hidden]) { flex: 0 0 auto; max-height: 260px; }
+ .camera-comparison { overflow-y: auto; }
+}
+@media(max-width:650px) {
+ .phase-calibration { grid-template-rows: 52px 100px minmax(0,1fr) 28px; }
+ .camera-comparison { padding: 12px; }
+ .camera-comparison > header { flex-direction: column; align-items: flex-start; }
+ .camera-comparison .comparison-views { grid-template-columns: 1fr; flex-basis: 480px; }
+ .camera-comparison .comparison-actions { justify-content: flex-start; }
+}
+
+.camera-comparison .comparison-camera-controls .camera-save { order: 5; }
+.camera-comparison .comparison-camera-controls .lens-control { order: 2; }
+.camera-comparison .camera-reference-disclosure { order: 3; }
+.camera-comparison .camera-connect .camera-guidance { align-self: flex-end; }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { maskBounds, yoloLabel } from './dataset-labels';
+import { maskBounds, objectMaskBounds, yoloLabel } from './dataset-labels';
 import { yoloFiles } from './dataset-export';
 import type { DatasetFrame, Detection } from './dataset';
 import type { DatasetRun } from './dataset-store';
@@ -9,6 +9,22 @@ import { completeDeckState, inferSlotState } from './deck-state';
 const detection: Detection = { slot: 'D1', classId: 'tip', assetId: 'rack', box: [.1, .2, .3, .4], pixels: 100, visibility: 1, review: false };
 const frame = (detections?: Detection[]) => ({ id: 'frame', runId: 'run', index: 1, image: new Blob(['png']), detections, annotations: [], recipe: { note: '', exposure: 1, warmth: 0, placements: [] }, feedback: [], createdAt: '' }) as DatasetFrame;
 describe('YOLO ground truth', () => {
+  it('separates overlapping object IDs, occluders, and absent objects in one readback', () => {
+    const pixels = new Uint8Array(4 * 4 * 4);
+    for (const i of [0, 1, 4]) pixels[i * 4] = 1;
+    for (const i of [5, 9]) pixels[i * 4] = 2;
+    const masks = objectMaskBounds(pixels, 4, 4, 3);
+    expect(masks).toEqual([
+      { count: 3, box: [0, .5, .5, .5] },
+      { count: 2, box: [.25, .25, .25, .5] },
+      { count: 0, box: null },
+    ]);
+    for (let id = 1; id <= 3; id++) {
+      const binary = new Uint8Array(pixels.length);
+      for (let i = 0; i < pixels.length; i += 4) if (pixels[i] === id) binary.fill(255, i, i + 4);
+      expect(masks[id - 1]).toEqual(maskBounds(binary, 4, 4));
+    }
+  });
   it('converts bottom-up GPU pixels into clipped top-left boxes', () => {
     const pixels = new Uint8Array(4 * 4 * 4);
     for (const i of [0, 1, 4, 5]) pixels.fill(255, i * 4, i * 4 + 4);
