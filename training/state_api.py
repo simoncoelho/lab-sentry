@@ -17,5 +17,5 @@ def deck_state(snapshot, now=None):
                       'confidence': item.get('confidence', 0), 'reason': item.get('reason', status if not fresh else 'no confident observation')})
     return {'schemaVersion': 1, 'instrument': 'opentrons-flex', 'modelId': snapshot.get('model'),
             'status': status, 'fresh': fresh, 'observedAt': datetime.fromtimestamp(timestamp, timezone.utc).isoformat() if timestamp else None,
-            'ageMs': round(age*1000) if age is not None else None, 'alignment': snapshot.get('alignment'),
+            'ageMs': round(age*1000) if age is not None else None,
             'error': snapshot.get('error'), 'slots': slots}

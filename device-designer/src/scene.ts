@@ -602,6 +602,7 @@ export class InstrumentScene {
     const render=() => { if(disposed)return; const width=host.clientWidth,height=host.clientHeight; if(width && height){if(width!==lastWidth||height!==lastHeight){renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();lastWidth=width;lastHeight=height;}controls.update();renderer.render(scene,camera);} frame=requestAnimationFrame(render); }; render();
     return {
       update,
+      setLabels: (visible:boolean) => { for(const label of labels.values())label.mesh.visible=visible; },
       setEnclosure: (visible:boolean) => { for(const item of faded)item.mesh.material=visible?item.original:item.ghost; },
       dispose: () => { disposed=true;cancelAnimationFrame(frame);controls.dispose();renderer.dispose();renderer.domElement.remove();for(const label of labels.values()){label.object?.removeFromParent();label.texture.dispose();label.mesh.geometry.dispose();(label.mesh.material as THREE.Material).dispose();}templates.forEach(disposeAsset);for(const item of faded)for(const material of Array.isArray(item.ghost)?item.ghost:[item.ghost])material.dispose(); }
     };

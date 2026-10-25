@@ -1995,3 +1995,16 @@ svg {
 .serve-model-legend { display:flex; justify-content:space-between; gap:12px; padding:12px; font-size:10px; color:var(--muted); background:#171e29; flex-wrap:wrap; }
 .serve-model { position:relative; }
 .serve-enclosure { position:absolute; top:12px; right:12px; z-index:1; font-size:10px; background:#171d27dd; }
+.serve-view-actions { display:flex; align-items:center; gap:10px; }
+.serve-visuals { display:grid; grid-template-columns:minmax(0,1fr); gap:14px; margin:14px 0; }
+.serve-visuals.with-camera { grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); }
+.serve-visuals .serve-model { margin:0; min-width:0; }
+.serve-camera { border:1px solid var(--border); border-radius:10px; overflow:hidden; background:#0d1016; display:flex; flex-direction:column; min-width:0; }
+.serve-camera header { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; font-size:11px; background:#171e29; }
+.serve-camera header button { font-size:10px; }
+.serve-camera-image { position:relative; flex:1; display:flex; align-items:center; }
+.serve-camera-image img { display:block; width:100%; aspect-ratio:16/9; object-fit:contain; }
+.serve-camera-image p { position:absolute; inset:40% 0 auto; text-align:center; }
+.serve-camera-placeholder { flex:1; display:grid; place-content:center; padding:20px; min-height:220px; color:var(--muted); font-size:11px; }
+.serve-camera footer { padding:12px; font-size:10px; color:var(--muted); background:#171e29; }
+@media(max-width:850px) { .serve-visuals.with-camera { grid-template-columns:1fr; } }

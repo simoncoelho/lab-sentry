@@ -50,7 +50,7 @@ The final **Serve** workflow step displays the Flex model with live 3D labware a
 
 `GET http://127.0.0.1:5102/api/v1/deck-state`
 
-This read-only, loopback-only endpoint returns `schemaVersion: 1`, `instrument`, `modelId`, `status`, `fresh`, UTC `observedAt`, `ageMs`, `alignment`, `error`, and all 12 `slots`. Each slot has `slot`, `state`, `labware`, `confidence` (0–1), and `reason`. States include `empty`, `occupied`, `obscured`, and `unknown`. No observation is inferred from a missing detection.
+This read-only, loopback-only endpoint returns `schemaVersion: 1`, `instrument`, `modelId`, `status`, `fresh`, UTC `observedAt`, `ageMs`, `error`, and all 12 `slots`. Each slot has `slot`, `state`, `labware`, `confidence` (0–1), and `reason`. States include `empty`, `occupied`, `obscured`, and `unknown`. No observation is inferred from a missing detection.
 
 `status` is `live`, `stale`, `stopped`, or `error`. Responses remain HTTP 200 when the detector is stopped or stale so clients can inspect its state. Observations older than five seconds, stopped detection, or runtime errors return every slot as unknown, with null labware and zero confidence. A fresh frame can still have unknown slots due to uncertain geometry or recognition. Responses have `Cache-Control: no-store`. Poll at approximately 1 Hz; reads do not start training or move the camera.
 

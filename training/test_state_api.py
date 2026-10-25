@@ -15,6 +15,10 @@ class StateApiTests(unittest.TestCase):
             self.assertFalse(result['fresh'])
             self.assertTrue(all(s['state']=='unknown' and s['labware'] is None for s in result['slots']))
 
+    def test_internal_alignment_is_not_exposed(self):
+        result=deck_state({'alignment':{'ok':True,'inliers':42}},102)
+        self.assertNotIn('alignment',result)
+
     def test_no_camera_yet(self):
         result=deck_state({},102)
         self.assertEqual(result['status'],'stopped')
