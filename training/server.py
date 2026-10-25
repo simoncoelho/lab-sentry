@@ -140,10 +140,9 @@ def status():
 
     except Exception as e: report={'error':str(e)}
 
-    import torch
-    from inference_device import inference_device
+    from inference_device import inference_device, training_device
     return {'dataset':report,'runs':runs(),'training':training_active(),'runtime':runtime.snapshot(),
-            'capabilities':{'training':torch.cuda.is_available(),'device':str(inference_device())}}
+            'capabilities':{'training':training_device() is not None,'device':str(inference_device())}}
 
 @app.get('/starter-workspace')
 def starter_workspace():
@@ -294,8 +293,8 @@ def download_model(identifier:str):
 async def train(request:Request):
 
     global worker
-    import torch
-    if not torch.cuda.is_available():raise HTTPException(409,'Training requires an NVIDIA GPU. CPU inference is available: select a saved model and Run detection.')
+    from inference_device import training_device
+    if training_device() is None:raise HTTPException(409,'Training requires an NVIDIA GPU or a Mac with Apple silicon. CPU inference is available: select a saved model and Run detection.')
 
     body=await request.json();epochs=body.get('epochs',100)
 

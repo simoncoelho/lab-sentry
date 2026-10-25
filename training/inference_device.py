@@ -10,3 +10,14 @@ def inference_device():
     if requested == 'cuda' and not torch.cuda.is_available():
         raise ValueError('CUDA requested but unavailable. Use LAB_SENTRY_DEVICE=cpu.')
     return 0 if requested != 'cpu' and torch.cuda.is_available() else 'cpu'
+
+
+def training_device():
+    """GPU for fine-tuning: the first CUDA device, else Apple's GPU (MPS) on a
+    Mac; None when neither exists, since CPU training is too slow to offer."""
+    import torch
+    if torch.cuda.is_available():
+        return 0
+    if torch.backends.mps.is_available():
+        return 'mps'
+    return None
