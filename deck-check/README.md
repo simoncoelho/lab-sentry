@@ -33,6 +33,7 @@ only answers on this computer (it can start runs on the robot).
 | `empty_names` | Labels that mean an empty slot |
 | `allowed_extras` | `{slot: labware}` that may sit in slots the protocol doesn't use |
 | `ignored_slots` | `{slot: label}` left out of the check entirely (A3 is the tip waste) |
+| `partial_view_slots` | `{slot: reason}` only partly in the camera's view, so never confirmed empty: they pass when empty or unknown, and fail if labware or an obscured view is detected (D1 with the included camera view) |
 | `protocols` | Each protocol's file name on the robot and its expected `layout` `{slot: labware}` |
 
 Labware names must match the vision service's (`Microplate`, `Reservoir`,

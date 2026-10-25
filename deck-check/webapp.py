@@ -97,6 +97,9 @@ def check_deck(protocol_name, vision_host):
     min_conf = cfg.get("min_confidence", 0.5)
     state = vision_model.parse_deck_state(latest_layout(vision_host))
     ignored = set(tidy(cfg.get("ignored_slots", {})))  # e.g. A3 tip waste: neither expected nor checked
+    # Slots the camera only partly sees can never be confirmed empty; for those,
+    # only detected labware (or an obscured view) fails when the slot should be free.
+    partial = set(tidy(cfg.get("partial_view_slots", {})))
     expected = {s: v for s, v in expected.items() if s not in ignored}
     state["slots"] = {s: v for s, v in state["slots"].items() if s not in ignored}
     slots = []
@@ -107,9 +110,13 @@ def check_deck(protocol_name, vision_host):
         confident = info["confidence"] is None or info["confidence"] >= min_conf
         if want is not None:
             match = info["state"] == "occupied" and same(want, got) and confident
+        elif slot in partial and info["state"] in ("empty", "unknown"):
+            match = True
         else:  # not used by the protocol: must be empty or an allowed fixture
             match = confident and (info["state"] == "empty" or (got or "").lower() in empty or same(allowed.get(slot), got))
         note = info["reason"] or (f"confidence {info['confidence']:.2f}" if not confident else None)
+        if slot in partial and want is None:
+            note = "partly visible: labware check only" + (f" ({note})" if note and not match else "")
         slots.append({"slot": slot, "expected": want, "seen": got, "match": match,
                       "extra": want is None and not match and info["state"] == "occupied",
                       "state": info["state"], "confidence": info["confidence"], "note": note})
