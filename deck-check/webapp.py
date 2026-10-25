@@ -45,17 +45,22 @@ def robot():
 
 
 def deck_stream(vision_host):
-    """The open stream to vision_host, (re)connecting if the host or settings changed."""
+    """The open stream to vision_host, (re)connecting if the host or settings changed.
+
+    vision_host may include a port ("127.0.0.1:5102" for Lab Sentry running on
+    this computer); otherwise vision_port from protocols.json is used.
+    """
     global stream
     cfg = config()
-    url = f"http://{vision_host}:{cfg.get('vision_port', vision_model.PORT)}" \
-          f"{cfg.get('vision_stream_path', vision_model.STREAM_PATH)}"
+    host, _, port = vision_host.strip().partition(":")
+    port = int(port) if port.isdigit() else cfg.get("vision_port", vision_model.PORT)
+    path = cfg.get("vision_stream_path", vision_model.STREAM_PATH)
+    url = f"http://{host}:{port}{path}"
     with stream_lock:
         if stream is None or stream.url != url:
             if stream is not None:
                 stream.close()
-            stream = vision_model.DeckStream(vision_host, cfg.get("vision_port", vision_model.PORT),
-                                             cfg.get("vision_stream_path", vision_model.STREAM_PATH))
+            stream = vision_model.DeckStream(host, port, path)
         return stream
 
 
