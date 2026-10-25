@@ -27,6 +27,8 @@ import { defaultLighting, type Lighting } from "./lighting-match";
 import { CameraComparison } from "./CameraComparison";
 import { CameraHardwareControls } from "./CameraHardwareControls";
 import { InstrumentScene, type ModelInfo } from "./scene";
+import { ProtocolDeckPanel } from "./ProtocolDeckPanel";
+import type { ExpectedDeck } from "./protocol-deck";
 import {
   clamp,
   createWorkspace,
@@ -201,6 +203,7 @@ export default function App() {
   const [sceneError, setSceneError] = useState("");
   const host = useRef<HTMLDivElement>(null);
   const scene = useRef<InstrumentScene | null>(null);
+  const [expectedDeck, setExpectedDeck] = useState<ExpectedDeck | null>(null);
   const instrument = instruments.find((i) => i.id === selected)!;
   const state = workspace[selected];
   const activeInstruments = instruments.filter((i) => workspace[i.id].present);
@@ -282,6 +285,9 @@ export default function App() {
   useEffect(() => {
     scene.current?.setGrid(grid);
   }, [grid]);
+  useEffect(() => {
+    scene.current?.setExpectedDeck(expectedDeck);
+  }, [expectedDeck]);
   useEffect(() => {
     scene.current?.setAcrylicVisible(acrylicVisible);
   }, [acrylicVisible]);
@@ -509,6 +515,7 @@ export default function App() {
             </div>
           ))}
         </div>
+        <ProtocolDeckPanel deck={expectedDeck} onDeck={setExpectedDeck} />
         {availableInstruments.length > 0 && (
           <div className="available-instruments">
             <span className="small-label">ADD TO WORKSPACE</span>
@@ -547,6 +554,7 @@ export default function App() {
           <p>Camera controls adjust pan/tilt and mount alignment in the comparison. Return to setup to change other devices.</p>
           <button onClick={exportSetup}>Export saved setup</button>
         </div>
+        <ProtocolDeckPanel deck={expectedDeck} onDeck={setExpectedDeck} />
       </aside>}
 
       <main className="viewport">

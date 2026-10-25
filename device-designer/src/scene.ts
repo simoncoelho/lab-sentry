@@ -9,6 +9,7 @@ import URDFLoader, { type URDFRobot } from "urdf-loader";
 import { opticalViewQuaternion, verticalFov } from "./camera-view";
 import { createLabBackdrop, createLabReflections } from "./lab-environment";
 import { defaultLighting, type Lighting } from "./lighting-match";
+import { labwareBox, type ExpectedDeck } from "./protocol-deck";
 import { sceneOrientation, rotatedPose, surfaceMountedPose } from "./orientation";
 import {
   clamp,
@@ -69,6 +70,8 @@ export class InstrumentScene {
   private placementEnabled = false;
   private surfaceMount = false;
   private acrylicVisible = true;
+  private expectedDeck: ExpectedDeck | null = null;
+  private deckGroup = new THREE.Group();
   private mountMarker = new THREE.Mesh(
     new THREE.RingGeometry(0.019, 0.0235, 48),
     new THREE.MeshBasicMaterial({ color: 0x8ec5ff, side: THREE.DoubleSide, depthTest: false, transparent: true, opacity: 0.9 }),
@@ -345,6 +348,11 @@ export class InstrumentScene {
       // Bounds in the native robot frame are also used for anchored labels.
       entry.bounds = new THREE.Box3().setFromObject(robot);
       entry.group.add(robot);
+      if (id === "flex") {
+        this.deckGroup.name = "expected_labware";
+        entry.group.add(this.deckGroup);
+        this.syncExpectedDeck();
+      }
       const size = entry.bounds.getSize(new THREE.Vector3());
       const footprintGeometry = new THREE.EdgesGeometry(
         new THREE.BoxGeometry(
@@ -490,6 +498,34 @@ export class InstrumentScene {
       this.mountMarker.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), hit.normal);
     }
   };
+
+  /** Show the protocol's labware as boxes on the Flex deck; null clears it. */
+  setExpectedDeck(deck: ExpectedDeck | null) {
+    this.expectedDeck = deck;
+    this.syncExpectedDeck();
+  }
+  private syncExpectedDeck() {
+    disposeObject(this.deckGroup);
+    this.deckGroup.clear();
+    const deck = this.expectedDeck;
+    if (!deck) return;
+    // Colors by Opentrons displayCategory, so the expected view is easy to read.
+    const colors: Record<string, number> = { tipRack: 0x4f8fe0, wellPlate: 0xe0a04f, reservoir: 0x4fc08f, adapter: 0x8a8f99, aluminumBlock: 0xa9adb5, tubeRack: 0xc06fd0 };
+    for (const item of deck.labware) {
+      const box = labwareBox(item, deck);
+      if (!box) continue;
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(...box.size),
+        new THREE.MeshStandardMaterial({ name: "expected_labware", color: colors[item.category] ?? 0xd8d8d0, roughness: .6, transparent: true, opacity: .85 }),
+      );
+      mesh.position.set(...box.center);
+      mesh.name = `labware_${item.slot}`;
+      mesh.userData.labware = item;
+      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), new THREE.LineBasicMaterial({ color: 0x1b2330 }));
+      mesh.add(edges);
+      this.deckGroup.add(mesh);
+    }
+  }
 
   setGrid(visible: boolean) {
     this.grid.visible = visible;
