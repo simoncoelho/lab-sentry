@@ -56,10 +56,30 @@ This read-only, loopback-only endpoint returns `schemaVersion: 1`, `instrument`,
 
 Example: `curl http://127.0.0.1:5102/api/v1/deck-state`
 
-The live view uses lightweight gray silhouettes for detected Tip rack, Microplate, and Reservoir classes; detailed assets remain in dataset generation. The UI polls sequentially with a 100 ms interval after each response and renders independently at display cadence. Detection itself currently runs at approximately 4 Hz, so rendering does not imply new inference on every display frame. It does not claim to identify an exact SKU. Empty slots stay clear; unknown/obscured slots show subtle labels and no inferred labware. The upper enclosure is faded by default and can be restored with Show enclosure.
+The live view uses lightweight gray silhouettes for detected Tip rack, Microplate, and Reservoir classes; detailed assets remain in dataset generation. The UI consumes SSE observations and renders independently at display cadence. Detection itself currently runs at approximately 4 Hz, so rendering does not imply new inference on every display frame. It does not claim to identify an exact SKU. Empty slots stay clear; unknown/obscured slots show subtle labels and no inferred labware. The upper enclosure is faded by default and can be restored with Show enclosure.
 
 ## Local-network access
 
 Run `training/start-lan.ps1` alongside the local training service. It starts a separate read-only gateway on the LAN interface, port 5103. You can specify `-Address <IPv4>` when multiple interfaces exist. Training, camera controls, videos, and model files remain on the loopback-only service at port 5102.
 
 For this PC, the current address is `http://192.168.0.80:5103/api/v1/deck-state`. Addresses assigned by DHCP may change. In an Administrator PowerShell, run `training/allow-lan.ps1` once to allow TCP 5103 from LocalSubnet on Wi-Fi; pass `-Address`, `-Interface`, or `-Port` to match another configuration. This does not expose the service through the router or change the network profile. No authentication is provided: devices on the allowed subnet can read deck state. The gateway returns HTTP 503 with `fresh:false` if local inference is unavailable.
+
+## Streaming state (SSE)
+
+`GET /api/v1/deck-state/stream` is available on both the local service (5102) and LAN gateway (5103). It uses `text/event-stream`, with named `state` events containing the same full JSON snapshot as REST. A connection gets the current snapshot immediately, then new inference/status snapshots; while idle, a snapshot is sent at least every two seconds. Slow clients receive the latest state rather than a queued history. Reconnect starts with a fresh snapshot; there is no replay log.
+
+```sh
+curl -N http://192.168.0.80:5103/api/v1/deck-state/stream
+```
+
+```js
+const stream = new EventSource('/training-api/api/v1/deck-state/stream');
+stream.addEventListener('state', event => {
+  const state = JSON.parse(event.data);
+  // Check state.fresh and each slot.state before acting.
+  console.log(state.slots);
+});
+// EventSource reconnects automatically. Call stream.close() when done.
+```
+
+The Serve UI now uses this stream instead of polling. Disconnect or a five-second stream silence clears the displayed state. The LAN firewall requirement is the same as REST; no additional port is needed. Browser applications on other origins need their own same-origin proxy (cross-origin access is not enabled).

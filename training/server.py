@@ -32,6 +32,7 @@ from dataset import audit
 
 from runtime import Runtime
 from state_api import deck_state
+from state_stream import state_events
 from fastapi.responses import JSONResponse
 
 
@@ -341,6 +342,10 @@ async def start(request:Request):
     return {'started':True}
 
 
+
+@app.get('/api/v1/deck-state/stream')
+async def public_state_stream(request: Request):
+    return StreamingResponse(state_events(runtime.snapshot, request.is_disconnected), media_type='text/event-stream', headers={'Cache-Control':'no-cache, no-transform', 'X-Accel-Buffering':'no'})
 
 @app.get('/api/v1/deck-state')
 def public_deck_state():

@@ -18,26 +18,29 @@ export function ServePanel({ onDetector, scene }: { onDetector: () => void; scen
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   useEffect(() => {
-    let active = true;
-    const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout>;
-    async function refresh() {
+    let lastMessage = Date.now();
+    const stream = new EventSource('/training-api/api/v1/deck-state/stream');
+    const receive = (event: MessageEvent) => {
       try {
-        const response = await fetch('/training-api/api/v1/deck-state', { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(4000)]) });
-        if (!response.ok) throw new Error('Start the local service with training/start.ps1.');
-        const next = await response.json();
-        if (active) { setState(next); setError(''); }
-      } catch (e) { if (active) { setState(undefined); setError((e as Error).message); } }
-      finally { if (active) timer = setTimeout(() => void refresh(), 100); }
-    }
-    void refresh();
-    return () => { active = false; controller.abort(); clearTimeout(timer); };
+        const next = JSON.parse(event.data);
+        lastMessage = Date.now();
+        if (!Array.isArray(next.slots)) throw new Error('Invalid state stream');
+        setState(next); setError('');
+      } catch { setState(undefined); setError('Invalid state received.'); }
+    };
+    stream.addEventListener('state', receive);
+    stream.onerror = () => { setState(undefined); setError('State stream disconnected. Reconnecting…'); };
+    const watchdog = setInterval(() => {
+      if (Date.now()-lastMessage > 5000) { setState(undefined); setError('Waiting for state stream…'); }
+    }, 1000);
+    return () => { stream.close(); clearInterval(watchdog); };
   }, []);
   return <section className="serve-panel" aria-label="Serve deck state">
     <header><div><span className="small-label">06 / SERVE</span><h1>Deck state API</h1><p>Live observations for your applications.</p></div><span className="serve-status">{state?.status ?? 'Connecting'}</span></header>
     <section className="serve-model"><button className="serve-enclosure" aria-pressed={enclosure} onClick={() => { setEnclosure(!enclosure); view.current?.setEnclosure(!enclosure); }}>{enclosure ? "Fade enclosure" : "Show enclosure"}</button><div ref={host} className="serve-model-canvas"/><div className="serve-model-legend">Live Flex · drag to orbit · scroll to zoom <span>Live updates · simplified class models</span></div>{viewError && <p role="alert">{viewError}</p>}</section>
     <div className="serve-layout"><section className="serve-card"><h2>Local endpoint</h2><div className="serve-endpoint"><b>GET</b><code>{endpoint}</code></div><p>Available on this computer while the service is running. The browser can be closed.</p>
       <div className="serve-actions"><button onClick={async () => { try { await navigator.clipboard.writeText(endpoint); setCopied(true); } catch { setError('Select and copy the endpoint above.'); } }}>{copied ? 'Copied' : 'Copy URL'}</button><a href={endpoint} target="_blank" rel="noreferrer">Open JSON ↗</a></div>
+      <h2>State stream · SSE</h2><code>{endpoint}/stream</code><pre>curl -N {endpoint}/stream</pre><p>Full state on each observation. Automatically reconnects; no polling required.</p>
       <h2>Detector</h2><p>{state?.modelId ?? 'No model running'}</p><button onClick={onDetector}>Manage detector</button>
       <p>Start or select a trained model in Train &amp; run. This endpoint always returns all 12 positions. Stale or stopped observations become unknown.</p>
       <h2>Request</h2><pre>curl {endpoint}</pre><p>Check <code>fresh</code> and each slot’s <code>state</code> before acting. Fresh images can still contain unknown slots.</p>
