@@ -31,6 +31,7 @@ import { rememberWorkspace } from './workspace-history';
 import { ServePanel } from './ServePanel';
 import { TrainingPanel } from "./TrainingPanel";
 import { createClassifier, classifierIssues, type ClassifierDesign } from "./classifier";
+import { SetupCameraPreview } from "./SetupCameraPreview";
 import { CameraComparison } from "./CameraComparison";
 import { CameraHardwareControls } from "./CameraHardwareControls";
 import { InstrumentScene, type ModelInfo } from "./scene";
@@ -667,6 +668,7 @@ export default function App() {
           </div>
         </div>
         <div className="canvas-host" ref={host} />
+        {phase === "setup" && <SetupCameraPreview scene={scene.current} fov={horizontalFov} present={workspace.tiny2.present} />}
         {activeInstruments.length === 0 && !sceneError && (
           <div className="scene-message">
             <Box size={28} />

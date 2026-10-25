@@ -2144,3 +2144,105 @@ svg {
 
 .phase-setup .placement-fields .section-caption { display: flex; color: var(--muted); font-size: 10px; letter-spacing: 0; margin-bottom: 10px; }
 .phase-setup .placement-fields .section-caption > span:last-child { display: none; }
+
+/* Generation workspace: observe on the left, direct Codex on the right. */
+.dataset-generator { background: #0d1016; padding: 20px 24px; }
+.dataset-heading { margin-bottom: 12px; gap: 12px; }
+.dataset-heading h1 { margin: 0; font: 600 21px 'DM Sans',sans-serif; }
+.dataset-heading > div:last-child { flex-wrap: wrap; gap: 8px; }
+.dataset-progress { margin-bottom: 8px; }
+.dataset-run-timing { display: inline-block; margin: 0 0 8px; font-size: 10px; color: var(--muted); }
+.dataset-batch-summary { margin-bottom: 14px; }
+.dataset-layout { grid-template-columns: minmax(0,1fr) 340px; gap: 16px; align-items: start; }
+.dataset-image { height: clamp(300px, calc(100dvh - 380px), 650px); border-radius: 10px; }
+.dataset-caption { align-items: center; flex-wrap: wrap; justify-content: flex-start; gap: 12px; }
+.dataset-caption > span:nth-child(2) { display: none; }
+.dataset-caption > button:first-of-type { margin-left: auto; }
+.dataset-filmstrip { margin: 12px 0; }
+.dataset-observer { display: flex; flex-direction: column; }
+.dataset-observer > .dataset-effects { order: 4; }
+.dataset-observer > details { border-top: 1px solid var(--border); padding: 12px 0; }
+.dataset-generator summary { cursor: pointer; color: #b8c2d2; font-size: 11px; }
+.dataset-rail { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.dataset-rail > details { background: #141820; border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin: 0; max-height: none; }
+.dataset-rail > details[open] { max-height: 420px; overflow-y: auto; }
+.dataset-rail > details > summary { margin: 0; }
+.dataset-rail > details[open] > summary { margin-bottom: 16px; }
+.dataset-rail > details > summary span { float: right; color: var(--muted); }
+.dataset-feedback { margin: 0; padding: 16px; background: #141820; border-radius: 10px; min-height: 300px; display: flex; flex-direction: column; }
+.dataset-feedback .classifier-section-heading { margin-bottom: 16px; }
+.dataset-feedback h2 { font: 600 15px 'DM Sans',sans-serif; }
+.dataset-feedback .file-button { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 10px; color: var(--muted); }
+.dataset-feedback .file-button input { display: none; }
+.dataset-conversation { min-height: 120px; max-height: 280px; overflow-y: auto; margin-bottom: 16px; font-size: 11px; line-height: 1.7; }
+.dataset-conversation p { margin: 6px 0 12px; }
+.dataset-conversation small { font-size: 9px; color: var(--muted); }
+.dataset-user-note { border-left: 2px solid #7c91b4; padding-left: 10px; margin-bottom: 12px; }
+.dataset-agent-note { color: #c1cbdc; }
+.dataset-feedback form { margin-top: auto; border: 1px solid #354052; border-radius: 8px; padding: 8px; background: #0d1016; }
+.dataset-feedback textarea { min-width: 0; background: transparent; border: 0; padding: 2px; height: 64px; min-height: 48px; font-size: 11px; }
+.dataset-feedback-hint { margin-top: 8px; font-size: 9px; color: var(--muted); }
+.dataset-setting-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.dataset-setting-row label { display: flex; flex-direction: column; gap: 6px; font-size: 10px; }
+.dataset-setting-row select { min-width: 0; width: 100%; }
+.dataset-settings .dataset-camera { border: 0; margin-bottom: 0; padding-bottom: 0; }
+.dataset-settings .dataset-camera > button { margin: 10px 0; }
+.dataset-settings .dataset-camera > label { display: flex; align-items: center; gap: 6px; font-size: 10px; }
+@media(max-width:1000px) { .dataset-layout { grid-template-columns: minmax(0,1fr) 290px; } .dataset-generator { padding: 16px; } }
+@media(max-width:760px) { .dataset-layout { grid-template-columns: 1fr; } .dataset-image { height: 300px; } .dataset-rail { grid-row: 1; } .dataset-feedback { min-height: 220px; } }
+
+.dataset-feedback form { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; }
+.dataset-feedback form textarea { grid-column: 1 / -1; width: 100%; }
+.dataset-feedback form .dataset-attach { grid-column: 2; justify-self: end; border: 0; background: transparent; color: var(--muted); }
+.dataset-feedback form .dataset-attach:hover { background: #222b39; color: #fff; }
+.dataset-feedback form .dataset-send { grid-column: 3; justify-self: end; }
+
+
+/* Photo-style, non-destructive batch editor. */
+.dataset-image-loading { display: grid; place-content: center; width: 100%; height: 100%; font-size: 10px; color: var(--muted); }
+.effects-launch { display: inline-flex; gap: 7px; align-items: center; }
+.effects-applied { font-size: 10px; color: var(--muted); }
+.photo-editor { width: min(1360px,94vw); max-width: none; max-height: 94dvh; padding: 0; color: #e0e5ed; background: #141820; border: 1px solid #354052; border-radius: 14px; box-shadow: 0 24px 100px #0009; }
+.photo-editor::backdrop { background: #05070bbd; backdrop-filter: blur(8px); }
+.photo-editor-header, .photo-editor-footer { display: flex; align-items: center; gap: 12px; padding: 16px 20px; }
+.photo-editor-header { border-bottom: 1px solid var(--border); justify-content: space-between; }
+.photo-editor-header > div { display: flex; align-items: baseline; gap: 14px; }
+.photo-editor-header h2 { font: 600 16px 'DM Sans',sans-serif; margin: 0; }
+.photo-editor-header span, .photo-editor-footer span { font-size: 11px; color: var(--muted); }
+.photo-editor-body { display: grid; grid-template-columns: minmax(0,1fr) 270px; }
+.photo-editor-canvas { background: #090c11; min-width: 0; padding: 12px 20px 18px; }
+.photo-editor-toolbar { display: flex; justify-content: space-between; align-items: center; height: 36px; margin-bottom: 12px; font-size: 11px; color: var(--muted); }
+.photo-editor-toolbar button { font-size: 11px; padding: 6px 10px; }
+.photo-editor-image { height: clamp(220px,49dvh,640px); position: relative; display: grid; place-items: center; }
+.photo-editor-image img { width: 100%; height: 100%; object-fit: contain; min-height: 0; }
+.photo-editor-image small { position: absolute; bottom: 12px; left: 12px; padding: 5px 8px; background: #090c11c9; border-radius: 4px; font-size: 10px; }
+.photo-editor-strip { display: flex; overflow-x: auto; gap: 6px; padding-top: 18px; }
+.photo-editor-strip button { flex: 0 0 76px; position: relative; padding: 2px; border: 1px solid transparent; border-radius: 5px; background: transparent; }
+.photo-editor-strip button[aria-pressed=true] { border-color: #b8cbea; }
+.photo-editor-strip img { width: 100%; display: block; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px; }
+.photo-editor-strip span { position: absolute; bottom: 3px; left: 5px; font-size: 9px; text-shadow: 0 1px 3px #000; }
+.photo-editor-adjustments { padding: 20px; border-left: 1px solid var(--border); }
+.photo-editor-adjust-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.photo-editor-adjust-title h3 { font: 500 14px 'DM Sans',sans-serif; margin: 0; }
+.photo-editor-adjust-title button { border: 0; background: transparent; padding: 6px; }
+.photo-editor-presets { display: flex; gap: 4px; margin-bottom: 26px; }
+.photo-editor-presets button { font-size: 10px; padding: 7px 9px; }
+.photo-editor button[aria-pressed=true] { background: #303d51; color: #eef4ff; }
+.photo-editor-sliders { display: flex; flex-direction: column; gap: 26px; }
+.photo-editor-sliders label { display: block; font-size: 11px; }
+.photo-editor-sliders output { float: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.photo-editor-sliders input { display: block; width: 100%; margin: 14px 0 0; accent-color: #a7bde0; }
+.photo-match-camera { width: 100%; margin-top: 30px; font-size: 11px; }
+.photo-editor-note { font-size: 11px; color: var(--muted); line-height: 1.6; margin-top: 20px; }
+.effects-reference { width: 100%; margin-top: 12px; }
+.photo-editor-footer { border-top: 1px solid var(--border); }
+.photo-editor-footer > span { margin-right: auto; }
+@media(max-width:700px) { .photo-editor-body { grid-template-columns: 1fr; } .photo-editor { overflow-y: auto; } .photo-editor-image { height: 32dvh; } .photo-editor-adjustments { border-left: 0; border-top: 1px solid var(--border); } .photo-editor-sliders { gap: 16px; } .photo-editor-footer { flex-wrap: wrap; } .photo-editor-footer > span { width: 100%; } }
+
+.setup-camera-preview { position: absolute; z-index: 5; right: 18px; bottom: 56px; width: min(380px,calc(100% - 36px)); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #141820; box-shadow: 0 10px 30px #0004; }
+.setup-camera-preview.is-collapsed { width: auto; }
+.setup-camera-preview > button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 12px; background: transparent; border: 0; text-align: left; font-size: 11px; }
+.setup-camera-preview > button svg:last-child { margin-left: auto; }
+.setup-camera-preview .setup-camera-canvas { width: 100%; aspect-ratio: 16/9; }
+.setup-camera-preview canvas { display: block; width: 100%; height: 100%; }
+.setup-camera-preview p { font-size: 11px; padding: 12px; color: var(--muted); }
