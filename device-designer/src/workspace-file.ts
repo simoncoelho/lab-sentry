@@ -9,7 +9,7 @@ export type SavedWorkspace = {
   savedAt: string;
   workspace: Workspace;
   classifier?: ClassifierDesign;
-  view: { acrylicVisible: boolean; grid: boolean; horizontalFov?: number; lighting?: Lighting };
+  view: { acrylicVisible: boolean; grid: boolean; horizontalFov?: number; lighting?: Lighting; cameraPtz?: { pan: number; tilt: number; zoom: number; device: string } };
 };
 export function snapshot(name: string, workspace: Workspace, view: SavedWorkspace["view"], classifier?: ClassifierDesign): SavedWorkspace {
   return { version: 1, name: name.trim() || "Untitled workspace", savedAt: new Date().toISOString(), workspace: structuredClone(workspace), view: structuredClone(view), ...(classifier ? { classifier: structuredClone(classifier) } : {}) };
@@ -20,6 +20,8 @@ export function parseWorkspace(raw: string): SavedWorkspace {
       typeof data.savedAt !== "string" || !Number.isFinite(Date.parse(data.savedAt)) ||
       typeof data.view?.acrylicVisible !== "boolean" || typeof data.view?.grid !== "boolean") throw new Error("Invalid workspace file.");
   if (data.view.horizontalFov !== undefined && (!Number.isFinite(data.view.horizontalFov) || data.view.horizontalFov < 30 || data.view.horizontalFov > 120)) throw new Error("Invalid camera field of view.");
+  const ptz = data.view.cameraPtz;
+  if (ptz && (![ptz.pan, ptz.tilt, ptz.zoom].every(Number.isFinite) || typeof ptz.device !== 'string')) throw new Error('Invalid saved camera PTZ.');
   const lighting = data.view.lighting;
   if (data.classifier !== undefined && !isClassifierDesign(data.classifier)) throw new Error("Invalid classifier definition.");
   if (lighting !== undefined && (!lighting || !Number.isFinite(lighting.exposure) || lighting.exposure < .3 || lighting.exposure > 2.5 || !Array.isArray(lighting.tint) || lighting.tint.length !== 3 || !lighting.tint.every(v => Number.isFinite(v) && v >= .7 && v <= 1.3))) throw new Error("Invalid lighting settings.");

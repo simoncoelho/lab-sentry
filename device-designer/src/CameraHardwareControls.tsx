@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { LiveTarget } from "./live-target";
+import { settledAngles } from './settled-angles';
 
 type Reading = { value: number | null; range: { min: number; max: number; step: number } | null; error?: string };
 type CameraState = { isConnected: boolean; device?: { displayName: string }; controls: { Pan?: Reading; Tilt?: Reading; Zoom?: Reading }; lastError?: string };
@@ -11,7 +12,7 @@ async function cameraRequest(path: string, body?: object) {
   return data;
 }
 
-export function CameraHardwareControls({ onReading }: { onReading: (pan: number, tilt: number) => void }) {
+export function CameraHardwareControls({ onReading, preset, detection = false }: { detection?: boolean; onReading: (pan: number, tilt: number, zoom?: number, device?: string) => void; preset?: { pan: number; tilt: number; zoom: number; device: string } }) {
   const [state, setState] = useState<CameraState | null>(null);
   const [linked, setLinked] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -39,11 +40,14 @@ export function CameraHardwareControls({ onReading }: { onReading: (pan: number,
   }, []);
   const callback = useRef(onReading);
   callback.current = onReading;
-  function accept(next: CameraState) {
+  function accept(next: CameraState, moving = true) {
     setState(next);
     const pan = next.controls.Pan?.value, tilt = next.controls.Tilt?.value;
     if (next.isConnected && Number.isFinite(pan) && Number.isFinite(tilt)) {
-      callback.current(pan!, tilt!);
+      // Keep raw readings visible, but avoid a one-degree encoder fluctuation
+      // moving the calibrated projection after the target has settled.
+      const angles = settledAngles({ pan: pan!, tilt: tilt! }, { pan: desired.current.Pan, tilt: desired.current.Tilt }, moving);
+      callback.current(angles.pan, angles.tilt, next.controls.Zoom?.value ?? undefined, next.device?.displayName);
     }
   }
   useEffect(() => {
@@ -55,7 +59,7 @@ export function CameraHardwareControls({ onReading }: { onReading: (pan: number,
         const result = await cameraRequest("state");
         const next: CameraState = result.state;
         if (!active) return;
-        accept(next);
+        accept(next, result.motion.moving);
         setFollowing(result.motion.moving);
         setError(result.motion.error || "");
         if (!next.isConnected) { setError("Camera disconnected. Reconnect controls."); setLinked(false); return; }
@@ -83,6 +87,14 @@ export function CameraHardwareControls({ onReading }: { onReading: (pan: number,
     setTarget(desired.current); setFollowing(true); setMessage(axis === "Zoom" ? "Zoom changes framing. Re-align the expected view afterward." : ""); setError("");
     queue.current?.push(desired.current);
   }
+  function restorePreset() {
+    if (!preset) return;
+    if (preset.device !== state?.device?.displayName) { setError('Saved view belongs to a different camera.'); return; }
+    desired.current = { Pan: preset.pan, Tilt: preset.tilt, Zoom: preset.zoom };
+    setTarget(desired.current); setFollowing(true); setError('');
+    setMessage('Restoring saved PTZ. Let motion and autofocus settle before detection.');
+    queue.current?.push(desired.current);
+  }
   async function stop() {
     setBusy(true);
     try {
@@ -96,7 +108,7 @@ export function CameraHardwareControls({ onReading }: { onReading: (pan: number,
     finally { setBusy(false); }
   }
   return <div className="hardware-controls">
-    <p className="hardware-label">{linked ? state?.device?.displayName : "Link camera controls"}</p>
+    <p className="hardware-label">{detection ? "Camera" : linked ? state?.device?.displayName : "Link camera controls"}</p>
     {!linked && <button disabled={busy} onClick={() => void connect()}>{busy ? "Connecting…" : "Connect camera controls"}</button>}
     {linked && <>
       <div className={`live-motion-status ${following ? "following" : "settled"}`} role="status"><span/>{error ? "Motion stopped" : following ? "Following…" : "Live · ready"}</div>
@@ -104,13 +116,16 @@ export function CameraHardwareControls({ onReading }: { onReading: (pan: number,
         const reading = state?.controls[axis], hardwareRange = reading?.range;
         const range = hardwareRange;
         const unit = axis === "Zoom" ? "" : "°";
-        return <div className="joint-control" key={axis}><div className="control-label"><label htmlFor={`hardware-${axis}`}>{axis}</label><span>{reading?.value ?? "—"}{unit} actual</span></div><input id={`hardware-${axis}`} aria-label={`Camera ${axis} target`} type="range" min={range?.min ?? 0} max={range?.max ?? 0} step={Math.max(1, range?.step ?? 1)} value={target[axis] ?? range?.min ?? 0} disabled={busy || !range || reading?.value == null} onChange={e => changeTarget(axis, Number(e.target.value))}/><div className="range-labels"><span>{range?.min}{unit}</span><span>{range ? `Target ${target[axis] ?? "—"}${unit}` : "Unavailable"}</span><span>{range?.max}{unit}</span></div></div>;
+        const nudge = (direction: number) => {
+          if (!range) return;
+          changeTarget(axis, Math.max(range.min, Math.min(range.max, (desired.current[axis] ?? range.min) + direction * Math.max(1, range.step))));
+        };
+        return <div className="joint-control" key={axis}><div className="control-label"><label htmlFor={`hardware-${axis}`}>{axis}</label><span>{reading?.value ?? "—"}{unit} actual</span></div><input id={`hardware-${axis}`} aria-label={`Camera ${axis} target`} type="range" min={range?.min ?? 0} max={range?.max ?? 0} step={Math.max(1, range?.step ?? 1)} value={target[axis] ?? range?.min ?? 0} disabled={busy || !range || reading?.value == null} onChange={e => changeTarget(axis, Number(e.target.value))}/><div className="range-labels"><span>{range?.min}{unit}</span><span>{range ? `Target ${target[axis] ?? "—"}${unit}` : "Unavailable"}</span><span>{range?.max}{unit}</span></div>{detection && <div className="camera-nudges"><button aria-label={`Decrease camera ${axis.toLowerCase()}`} disabled={busy || !range || reading?.value == null} onClick={() => nudge(-1)}>−</button><button aria-label={`Increase camera ${axis.toLowerCase()}`} disabled={busy || !range || reading?.value == null} onClick={() => nudge(1)}>+</button></div>}</div>;
       })}
-      <p>Drag to aim live. New input replaces the previous target; allow a moment for the camera and video to catch up.</p>
-      <div className="hardware-actions"><button disabled={busy} onClick={() => void stop()}>{busy ? "Stopping…" : "Stop"}</button></div>
+      {!detection && <p>Drag to aim live. New input replaces the previous target; allow a moment for the camera and video to catch up.</p>}
+      <div className="hardware-actions"><button disabled={busy} onClick={() => void stop()}>{busy ? "Stopping…" : "Stop"}</button>{preset && <button disabled={busy} onClick={restorePreset} title="Return camera to the calibrated pan, tilt and zoom">Restore view</button>}</div>
     </>}
     {message && <p role="status">{message}</p>}{error && <p className="camera-error" role="alert">{error}</p>}
-    <p>Reported angles drive the model. Mount alignment and optical calibration still determine whether the images match.</p>
+    {!detection && <p>Reported angles drive the model. Mount alignment and optical calibration still determine whether the images match.</p>}
   </div>;
 }
-

@@ -1767,3 +1767,196 @@ svg {
 .copilot-error { color:#f0ad9d; font-size:12px; line-height:1.5; }
 .copilot-thinking { color:var(--muted); font-size:12px; }
 @media(max-width:800px) { .copilot-layout { grid-template-columns:1fr; height:auto; } .copilot-chat { min-height:450px; } .copilot-draft { max-height:500px; } }
+
+.phase-dataset > .library, .phase-dataset > .viewport, .phase-dataset > .inspector { display:none; }
+.phase-training > .library, .phase-training > .viewport, .phase-training > .inspector { display:none; }
+.phase-training > .dataset-generator { display:none; }
+.training-panel { grid-column:1 / -1; min-height:0; overflow:auto; padding:24px 30px; color:#d8dde7; background:#10151d; }
+.training-toolbar, .training-actions, .training-summary, .training-progress, .detection-camera-toolbar, .training-metrics, .detection-deck header { display:flex; align-items:center; gap:16px; }
+.training-toolbar { justify-content:space-between; margin-bottom:22px; }
+.training-toolbar h1 { font-size:24px; font-weight:500; margin:6px 0 0; }
+.training-panel .eyebrow { font-size:10px; color:var(--muted); letter-spacing:1.7px; }
+.training-panel button { display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:9px 12px; border:1px solid #303a49; border-radius:6px; background:#171d27; color:#c3cddd; cursor:pointer; }
+.training-panel button:disabled { opacity:.4; cursor:default; }
+.training-panel button.primary-action { background:#aac8f3; color:#121c2a; border-color:#aac8f3; }
+.training-actions label { display:flex; align-items:center; gap:8px; color:#8b9b98; font-size:12px; }
+.training-panel input, .training-panel select { background:#111721; color:#e8eef7; border:1px solid #303a49; border-radius:5px; padding:8px; }
+.training-panel input { width:65px; }
+.training-summary { padding:16px 0 22px; border-bottom:1px solid var(--border); margin-bottom:18px; gap:40px; }
+.training-summary > div { display:grid; gap:5px; }
+.training-summary strong { font-size:24px; font-weight:500; font-variant-numeric:tabular-nums; }
+.training-summary span, .training-summary p, .training-summary small { font-size:12px; color:var(--muted); }
+.training-summary p { margin-left:auto; }
+.training-summary small { display:block; margin-top:8px; color:var(--muted); }
+.training-progress { padding:12px 16px; background:#171e29; border-radius:7px; margin-bottom:16px; font-size:12px; }
+.training-progress progress { flex:1; height:5px; accent-color:var(--accent); }
+.detection-layout { display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:20px; }
+.detection-camera { background:#0d1016; border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+.detection-camera img { display:block; width:100%; aspect-ratio:16/9; object-fit:contain; }
+.detection-camera-toolbar { padding:12px 16px; justify-content:space-between; font-size:12px; }
+.detection-camera-toolbar span { color:var(--muted); }
+.detection-placeholder { aspect-ratio:16/9; display:flex; flex-direction:column; gap:12px; align-items:center; justify-content:center; color:var(--muted); font-size:13px; }
+.detection-deck { border:1px solid var(--border); padding:16px; border-radius:9px; }
+.detection-deck header { justify-content:space-between; font-size:13px; margin-bottom:18px; }
+.detection-deck header span, .detection-deck p { color:var(--muted); font-size:11px; }
+.detection-slot-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.detection-slot { min-height:87px; background:#171e29; border:1px solid var(--border); border-radius:6px; display:flex; flex-direction:column; padding:10px 8px; gap:8px; }
+.detection-slot strong { font-size:13px; }.detection-slot span { font-size:11px; color:#adbacd; }.detection-slot small { font-size:10px; color:var(--muted); }
+.detection-slot.state-occupied { background:#183b2b; border-color:#376c4d; }.detection-slot.state-empty { background:#1a2c32; border-color:#34515a; }.detection-slot.state-obscured { background:#383021; border-color:#625237; }
+.training-metrics { flex-wrap:wrap; margin-top:18px; font-size:11px; color:var(--muted); }.training-metrics strong { color:#c3cddd; }.training-metrics button { margin-left:auto; }
+.training-footnote { margin:10px 0 0; font-size:11px; color:var(--muted); }.training-error { color:#efb299; font-size:12px; }
+@media(max-width:1000px) { .training-panel { padding:18px; }.training-toolbar { flex-wrap:wrap; }.detection-layout { grid-template-columns:minmax(0,1fr) 245px; }.training-summary { gap:20px; } }
+@media(max-width:750px) { .detection-layout { grid-template-columns:1fr; }.training-actions { flex-wrap:wrap; }.training-summary { flex-wrap:wrap; } }
+.dataset-generator { grid-column:1/-1; grid-row:3; overflow:auto; padding:22px 28px; background:#10151d; }
+.dataset-heading,.dataset-heading>div:last-child { display:flex; align-items:center; gap:10px; }
+.dataset-heading { justify-content:space-between; gap:20px; margin-bottom:16px; }
+.dataset-heading h1 { font-size:23px; margin:7px 0; }
+.dataset-heading label { display:flex; gap:8px; align-items:center; color:var(--muted); font-size:11px; }
+.dataset-heading input { width:70px; }
+.dataset-generator input,.dataset-generator select,.dataset-generator textarea { background:#111721; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:8px; font:inherit; font-size:12px; }
+.dataset-progress { display:flex; align-items:center; gap:12px; margin-bottom:16px; font-size:11px; }
+.dataset-progress progress { width:140px; height:4px; accent-color:#9dbfff; }
+.dataset-progress>span { color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dataset-layout { display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:20px; }
+.dataset-observer { min-width:0; }
+.dataset-image { aspect-ratio:16/9; background:#080c12; border:1px solid var(--border); border-radius:12px; overflow:hidden; position:relative; }
+.dataset-image>img { width:100%; height:100%; object-fit:contain; }
+.dataset-empty { height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--muted); }
+.dataset-empty h2 { font-size:18px; font-weight:500; }
+.dataset-empty p { font-size:12px; }
+.dataset-render-host { position:absolute; width:1280px; height:720px; left:-20000px; pointer-events:none; }
+.dataset-caption { display:flex; justify-content:space-between; color:var(--muted); font-size:10px; margin:9px 0 12px; }
+.dataset-filmstrip { display:flex; gap:8px; overflow:auto; padding-bottom:8px; min-height:74px; }
+.dataset-filmstrip button { min-width:108px; width:108px; padding:0; position:relative; overflow:hidden; display:block; }
+.dataset-filmstrip img { display:block; width:100%; }
+.dataset-filmstrip span { position:absolute; bottom:3px; right:4px; padding:2px 5px; background:#10151ddd; font-size:10px; }
+.dataset-filmstrip button[aria-pressed=true] { border-color:#9dbfff; }
+.dataset-feedback { margin-top:18px; background:#171e29; border:1px solid var(--border); border-radius:12px; padding:16px; }
+.dataset-feedback h2,.dataset-assets h2 { font-size:13px; margin:0; }
+.dataset-feedback small { color:var(--muted); font-size:10px; }
+.dataset-feedback form { display:flex; gap:8px; align-items:flex-end; }
+.dataset-feedback textarea { flex:1; height:65px; resize:vertical; }
+.dataset-feedback form button { width:34px; height:34px; justify-content:center; }
+.dataset-notes { font-size:12px; line-height:1.5; color:#b7c9e5; }
+.dataset-notes p { border-left:2px solid #50698c; padding-left:10px; }
+.dataset-assets { max-height:calc(100vh - 260px); overflow:auto; }
+.dataset-assets .file-button { display:flex; gap:6px; align-items:center; margin:0; cursor:pointer; }
+.dataset-assets .file-button input { display:none; }
+.dataset-empty-class select,.dataset-asset select,.dataset-runs select { width:100%; margin:6px 0; }
+.dataset-asset { border-top:1px solid var(--border); padding:12px 0; }
+.dataset-asset>div:first-child { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.dataset-asset strong { font-size:11px; overflow-wrap:anywhere; }
+.dataset-asset>div>button { padding:3px; }
+.dataset-asset-size { display:flex; gap:8px; }
+.dataset-asset-size label { flex:1; font-size:10px; }
+.dataset-asset-size input { width:100%; }
+.dataset-runs { margin-top:20px; border-top:1px solid var(--border); padding-top:16px; }
+.dataset-generator details { color:var(--muted); font-size:11px; }
+.dataset-labels { display:flex; flex-wrap:wrap; gap:6px; padding:8px 0; }
+.dataset-labels span { background:#202b3b; padding:6px; border-radius:5px; }
+.workflow-bar nav { gap:5px; }
+@media(max-width:1000px) { .dataset-layout { grid-template-columns:minmax(0,1fr) 260px; } .workflow-bar { flex-wrap:wrap; } .dataset-heading { align-items:flex-start; flex-wrap:wrap; } }
+@media(max-width:700px) { .dataset-layout { grid-template-columns:1fr; } .dataset-assets { max-height:none; } .dataset-generator { padding:14px; } .dataset-heading>div:last-child { flex-wrap:wrap; } }
+.dataset-image { aspect-ratio:auto; height:clamp(240px, calc(100dvh - 570px), 440px); }
+.dataset-render-host { inset:0; width:100%; height:100%; left:0; }
+.dataset-filmstrip { min-height:60px; max-height:72px; }
+.dataset-feedback { margin-top:10px; padding:12px; }
+.dataset-feedback textarea { height:48px; }
+.dataset-notes p { margin:8px 0; }
+.dataset-assets { max-height:calc(100dvh - 285px); }
+@media(min-width:1600px) { .dataset-layout { grid-template-columns:minmax(0,1fr) 340px; } }
+.dataset-camera { padding:14px 0; border-block:1px solid var(--border); margin:12px 0; }
+.dataset-camera-axis { display:grid; grid-template-columns:36px 1fr; gap:6px; align-items:center; margin:10px 0; }
+.dataset-camera-axis>label { text-transform:capitalize; font-size:11px; margin:0; }
+.dataset-camera-axis>div { display:flex; gap:6px; }
+.dataset-camera-axis input { width:50%; min-width:0; padding:6px; }
+.dataset-camera-axis .dataset-coverage { grid-column:2; gap:3px; }
+.dataset-coverage span { flex:1; text-align:center; padding:3px; background:#202b3b; border-radius:3px; color:#66738a; font-size:9px; }
+.dataset-coverage span.covered { background:#314f69; color:#c7e5ff; }
+.dataset-notes { max-height:48px; overflow:auto; margin:4px 0 8px; }
+.dataset-notes p { font-size:11px; margin:4px 0; }
+.dataset-caption { gap:8px; flex-wrap:wrap; }
+
+.dataset-labeled-frame { position: relative; aspect-ratio: 16/9; height: 100%; max-width: 100%; margin: auto; }
+.dataset-labeled-frame img, .dataset-labeled-frame svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.dataset-labeled-frame svg { pointer-events: none; }
+.dataset-labeled-frame text { paint-order: stroke; stroke: #101820; stroke-width: 3px; }
+.dataset-asset small { display: block; color: var(--muted); font-size: 10px; margin: 4px 0; }
+.dataset-slot-states { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin: 10px 0; }
+.dataset-slot-states > div { display: flex; gap: 8px; align-items: center; padding: 6px 8px; background: #181e27; border-left: 2px solid #687384; font-size: 10px; }
+.dataset-slot-states [data-state="empty"] { border-color: #66ccb2; }
+.dataset-slot-states [data-state="occupied"] { border-color: #8caff0; }
+.dataset-slot-states [data-state="obscured"] { border-color: #edb964; }
+.dataset-slot-states small { color: #8d99ad; margin-left: auto; }
+.training-reference { display:flex; align-items:center; gap:8px; font-size:11px; color:#adbacd; margin:0 0 6px; }
+.training-reference input { width:auto; accent-color:#aac8f3; }.training-reference span { color:var(--muted); margin-left:8px; }
+.training-panel.is-detecting .training-summary, .training-panel.is-detecting .training-reference, .training-panel.is-detecting .training-progress, .training-panel.is-detecting .training-actions { display:none; }
+.training-panel.is-detecting .detection-camera img { max-height:calc(100vh - 330px); }
+.image-processing { padding:16px; border:1px solid var(--border, #dce2e5); border-radius:12px; margin:12px 0; }
+.image-processing header,.processing-controls>div { display:flex;justify-content:space-between;align-items:center;gap:12px; }
+.image-processing h2 { font-size:14px;margin:0; }
+.processing-layout {display:grid;grid-template-columns:minmax(0,1.5fr) minmax(220px,1fr);gap:18px;margin-top:12px;}
+.processing-preview {position:relative;aspect-ratio:16/9;background:#171b20;border-radius:8px;overflow:hidden;}
+.processing-preview img {width:100%;height:100%;object-fit:contain;}
+.processing-preview span {position:absolute;bottom:8px;left:8px;background:#182028cc;color:white;padding:4px 8px;border-radius:5px;font-size:11px;}
+.processing-controls label {display:grid;grid-template-columns:1fr auto;gap:6px;margin-bottom:12px;font-size:12px;}
+.processing-controls input {grid-column:1/-1;width:100%;}
+.processing-controls small {display:block;font-size:11px;opacity:.7;margin-top:10px;}
+.model-library {border:1px solid var(--border,#dce2e5);border-radius:12px;padding:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.model-library input {min-width:160px;flex:1;padding:8px;}
+@media(max-width:800px){.processing-layout{grid-template-columns:1fr;}}
+.processing-layout.has-reference {grid-template-columns:1fr 1fr;}
+.processing-layout.has-reference .processing-controls {grid-column:1/-1;display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+.processing-layout.has-reference .processing-controls small {grid-column:2/-1;}
+@media(max-width:800px){.processing-layout.has-reference,.processing-layout.has-reference .processing-controls{grid-template-columns:1fr;}.processing-layout.has-reference .processing-controls small{grid-column:auto;}}
+.detection-camera-controls {border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:16px;}
+.detection-camera-controls .hardware-label {margin-top:0;font-size:12px;}
+.detection-camera-controls .joint-control {position:relative;padding-right:72px;}
+.camera-nudges {position:absolute;right:0;top:30px;display:flex;gap:4px;}
+.camera-nudges button {width:30px;height:30px;padding:0;font-size:18px;}
+.detection-camera-controls .hardware-actions {display:flex;gap:6px;flex-wrap:wrap;}
+.detection-camera-controls .hardware-controls>p:not(.hardware-label):not([role]) {font-size:10px;line-height:1.4;}
+/* Live detection: a single video workspace with a compact camera/deck inspector. */
+.training-panel.is-detecting { padding:16px 22px; }
+.is-detecting .training-toolbar { margin-bottom:14px; }
+.is-detecting .training-toolbar h1 { font-size:22px; margin:4px 0 0; }
+.detection-layout { gap:14px; align-items:start; }
+.detection-camera-toolbar { padding:10px 12px; gap:12px; }
+.detection-camera-toolbar span { font-size:11px; text-align:right; }
+.detection-camera-toolbar select { min-width:0; max-width:80%; font-size:12px; }
+.detection-deck { padding:14px; background:#171e29; }
+.detection-deck header { margin-bottom:10px; }
+.detection-slot-grid { gap:5px; }
+.detection-slot { min-height:49px; padding:7px 8px; gap:3px; position:relative; }
+.detection-slot strong { font-size:11px; color:#c3cddd; }
+.detection-slot span { font-size:10px; overflow-wrap:anywhere; }
+.detection-slot small { position:absolute; top:7px; right:6px; font-size:9px; }
+.detection-slot.state-unknown { background:#111721; border-color:var(--border); }
+.detection-slot.state-unknown span { color:var(--muted); }
+.detection-deck > p { margin:10px 0 0; font-size:10px; }
+.detection-camera-controls { padding-bottom:12px; margin-bottom:14px; }
+.detection-camera-controls .hardware-controls { position:relative; }
+.detection-camera-controls .hardware-label { margin:0 0 12px; font-size:13px; color:#c3cddd; }
+.detection-camera-controls .live-motion-status { position:absolute; top:0; right:0; margin:0; font-size:10px; }
+.detection-camera-controls .hardware-controls .joint-control { padding:5px 68px 7px 0; margin:0; }
+.detection-camera-controls .control-label { margin-bottom:3px; font-size:11px; }
+.detection-camera-controls .control-label span { font-size:10px; }
+.detection-camera-controls .joint-control input[type="range"] { width:100%; padding:0; height:4px; margin:7px 0; border:0; }
+.detection-camera-controls .range-labels { margin:0; display:flex; justify-content:flex-end; font-size:9px; }
+.detection-camera-controls .range-labels > span:first-child,
+.detection-camera-controls .range-labels > span:last-child { display:none; }
+.detection-camera-controls .camera-nudges { top:18px; }
+.detection-camera-controls .camera-nudges button { width:28px; height:28px; font-size:16px; }
+.detection-camera-controls .hardware-actions { margin-top:6px; }
+.detection-camera-controls .hardware-actions button { flex:1; padding:7px; font-size:11px; }
+.detection-camera-controls p[role] { font-size:10px; margin:8px 0 0; }
+.detection-model-details { margin-top:14px; border-top:1px solid var(--border); padding-top:12px; }
+.detection-model-details summary { color:var(--muted); font-size:11px; cursor:pointer; }
+.detection-model-details .model-library { margin-top:12px; }
+@media(min-width:1001px) { .training-panel.is-detecting .detection-camera img { max-height:calc(100vh - 290px); } }
+@media(max-width:750px) { .detection-layout { grid-template-columns:1fr; }.detection-camera-controls .hardware-controls { max-width:100%; } }
+@media(min-width:1001px) { .training-panel.is-detecting .detection-camera img { max-height:calc(100vh - 370px); } }
+
+/* Use the workflow button palette, including hover, in the training phase. */
+.training-panel button:hover:not(:disabled) { background:#222d3d; border-color:#566881; color:#fff; }
+.training-panel button.primary-action:hover:not(:disabled) { background:#c2d9fa; border-color:#aac8f3; color:#121c2a; }

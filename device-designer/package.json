@@ -17,6 +17,7 @@
     "urdf-loader": "^0.13.1"
   },
   "devDependencies": {
+    "@types/node": "^26.6.5",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/three": "^0.180.0",

@@ -25,6 +25,8 @@ import {
 import { STORAGE_KEY, snapshot, parseWorkspace, matchesSaved, type SavedWorkspace } from "./workspace-file";
 import { defaultLighting, type Lighting } from "./lighting-match";
 import { ClassifierDesigner } from "./ClassifierDesigner";
+import { DatasetGenerator } from "./DatasetGenerator";
+import { TrainingPanel } from "./TrainingPanel";
 import { createClassifier, classifierIssues, type ClassifierDesign } from "./classifier";
 import { CameraComparison } from "./CameraComparison";
 import { CameraHardwareControls } from "./CameraHardwareControls";
@@ -181,9 +183,11 @@ export default function App() {
   const [restored] = useState(restoreSaved);
   const [saved, setSaved] = useState<SavedWorkspace | null>(restored.saved);
   const [workspaceName, setWorkspaceName] = useState(restored.saved?.name || "My lab workspace");
+  const [cameraPtz, setCameraPtz] = useState<SavedWorkspace['view']['cameraPtz']>(restored.saved?.view.cameraPtz);
   const [lighting, setLighting] = useState<Lighting>(restored.saved?.view.lighting ?? defaultLighting);
   const [horizontalFov, setHorizontalFov] = useState(restored.saved?.view.horizontalFov ?? 70);
-  const [phase, setPhase] = useState<"setup" | "calibration" | "classifier">("setup");
+  const [phase, setPhase] = useState<"setup" | "calibration" | "classifier" | "dataset" | "training">("setup");
+  const [datasetProgress, setDatasetProgress] = useState({ running: false, count: 0, target: 0 });
   const [classifier, setClassifier] = useState<ClassifierDesign | undefined>(restored.saved?.classifier);
   const [saveError, setSaveError] = useState(restored.error);
   const [reference, setReference] = useState<{ url: string; name: string } | null>(null);
@@ -344,10 +348,10 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [selected, help, state.present, phase]);
 
-  const clean = matchesSaved(saved, workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting }, classifier);
+  const clean = matchesSaved(saved, workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting, ...(cameraPtz ? { cameraPtz } : {}) }, classifier);
   const setupReady = activeInstruments.length > 0 && activeInstruments.every(i => loads[i.id]?.info) && !sceneError;
   function saveSetup(continueToCalibration = false) {
-    const next = snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting }, classifier);
+    const next = snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting, ...(cameraPtz ? { cameraPtz } : {}) }, classifier);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       setSaved(next);
@@ -365,9 +369,13 @@ export default function App() {
     setClassifier(previous => previous ?? createClassifier());
     setMounting(false); setIsolated(false); setPhase("classifier");
   }
+  function openDataset() {
+    if (!classifier || classifierIssues(classifier).length || !saveSetup()) return;
+    setMounting(false); setIsolated(false); setPhase('dataset');
+  }
   function exportClassifier() {
     if (!classifier || classifierIssues(classifier).length || !saveSetup()) return;
-    const context = snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting }, classifier);
+    const context = snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting, ...(cameraPtz ? { cameraPtz } : {}) }, classifier);
     const spec = { kind: "lab-sentry.classifier-spec", version: 1, workspace: context,
       labelingPolicy: { ambiguous: "manual_review", splitBy: "capture_session", generatedImages: 0 } };
     const url = URL.createObjectURL(new Blob([JSON.stringify(spec, null, 2)], { type: "application/json" }));
@@ -376,7 +384,7 @@ export default function App() {
     link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   function exportSetup() {
-    const next = snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting }, classifier);
+    const next = snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting, ...(cameraPtz ? { cameraPtz } : {}) }, classifier);
     const url = URL.createObjectURL(new Blob([JSON.stringify(next, null, 2)], { type: "application/json" }));
     const link = document.createElement("a"); link.href = url;
     link.download = `${next.name.replace(/[^a-z0-9_-]+/gi, "-")}.workspace.json`;
@@ -424,7 +432,7 @@ export default function App() {
         </div>
         <div className="top-actions">
           <span className="mode-tag">
-            <span /> {phase === "setup" ? "LOCAL SIMULATION" : phase === "classifier" ? "CLASSIFIER DESIGN" : "CAMERA COMPARISON"}
+            <span /> {phase === "setup" ? "LOCAL SIMULATION" : phase === "training" ? "MODEL TRAINING & DETECTION" : phase === "dataset" ? "DATASET GENERATION" : phase === "classifier" ? "CLASSIFIER DESIGN" : "CAMERA COMPARISON"}
           </span>
           <button
             className="icon-button"
@@ -444,6 +452,10 @@ export default function App() {
           <button aria-current={phase === "calibration" ? "step" : undefined} disabled={!clean || !setupReady || !workspace.tiny2.present} onClick={() => { setMounting(false); setIsolated(false); setTab("joints"); setPhase("calibration"); }}><span>02</span> Camera calibration</button>
           <ChevronRight size={14} />
           <button aria-current={phase === "classifier" ? "step" : undefined} disabled={!setupReady || !workspace.tiny2.present} onClick={openClassifier}><span>03</span> Classifier design</button>
+          <ChevronRight size={14} />
+          <button aria-current={phase === 'dataset' ? 'step' : undefined} disabled={!setupReady || !workspace.flex.present || !workspace.tiny2.present || !classifier || !!classifierIssues(classifier).length} onClick={openDataset}><span>04</span> Generate dataset {datasetProgress.running && <small>{datasetProgress.count}/{datasetProgress.target}</small>}</button>
+          <ChevronRight size={14}/>
+          <button aria-current={phase === 'training' ? 'step' : undefined} disabled={!classifier} onClick={() => setPhase('training')}><span>05</span> Train & run</button>
         </nav>
         <div className="workflow-save">
           <span className={clean ? "saved-state" : "draft-state"} role="status">{clean ? "Saved on this browser" : saved ? "Unsaved changes" : "Not saved yet"}</span>
@@ -455,6 +467,8 @@ export default function App() {
       </section>
       {saveError && <div className="save-error" role="alert">{saveError}<button onClick={() => setSaveError("")} aria-label="Dismiss save error"><X size={13}/></button></div>}
       {phase === "classifier" && classifier && <ClassifierDesigner design={classifier} onChange={setClassifier} onSave={() => saveSetup()} onExport={exportClassifier} clean={clean} workspaceName={workspaceName}/>}
+      {(phase === 'dataset' || phase === 'training') && classifier && <DatasetGenerator onProgress={setDatasetProgress} scene={scene.current} context={snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting, ...(cameraPtz ? { cameraPtz } : {}) }, classifier)}/>}
+      {phase === 'training' && classifier && <TrainingPanel context={snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting, ...(cameraPtz ? { cameraPtz } : {}) }, classifier)}/>}
       {phase === "setup" ? <aside className="library">
         <div className="panel-heading">
           <span>INSTRUMENTS</span>
@@ -471,7 +485,7 @@ export default function App() {
               try {
                 if (file.size > 1000000) throw new Error("Workspace file is too large.");
                 const next = parseWorkspace(await file.text());
-                setWorkspace(structuredClone(next.workspace)); setWorkspaceName(next.name); setAcrylicVisible(next.view.acrylicVisible); setGrid(next.view.grid); setHorizontalFov(next.view.horizontalFov ?? 70); setLighting(next.view.lighting ?? defaultLighting); setClassifier(next.classifier);
+                setWorkspace(structuredClone(next.workspace)); setWorkspaceName(next.name); setAcrylicVisible(next.view.acrylicVisible); setGrid(next.view.grid); setHorizontalFov(next.view.horizontalFov ?? 70); setLighting(next.view.lighting ?? defaultLighting); setCameraPtz(next.view.cameraPtz); setClassifier(next.classifier);
                 setMounting(false); setIsolated(false); setSaveError("");
                 setSelected(instruments.find(i => next.workspace[i.id].present)?.id || "flex");
               } catch { setSaveError("Could not open that workspace file. Your current setup has been kept."); }
@@ -575,11 +589,11 @@ export default function App() {
 
       <main className="viewport">
         {phase === "calibration" && <CameraComparison onContinue={openClassifier} lighting={lighting} setLighting={setLighting} pose={workspace.tiny2.pose} onPose={pose => setWorkspace(previous => ({ ...previous, tiny2: { ...previous.tiny2, pose } }))} onAngles={(pan, tilt) => setWorkspace(previous => ({ ...previous, tiny2: { ...previous.tiny2, joints: { ...previous.tiny2.joints, obsbot_pan_joint: pan * Math.PI / 180, obsbot_tilt_joint: tilt * Math.PI / 180 } } }))} onSave={() => saveSetup()} fov={horizontalFov} setFov={setHorizontalFov} scene={scene.current} cameraControls={<>
-          <CameraHardwareControls onReading={(pan, tilt) => setWorkspace(previous => {
+          <CameraHardwareControls preset={saved?.view.cameraPtz} onReading={(pan, tilt, zoom, device) => { if (zoom !== undefined) setCameraPtz(previous => previous?.pan === pan && previous?.tilt === tilt && previous?.zoom === zoom && previous?.device === device ? previous : { pan, tilt, zoom, device: device ?? 'OBSBOT' }); setWorkspace(previous => {
             const joints = { ...previous.tiny2.joints, obsbot_pan_joint: pan * Math.PI / 180, obsbot_tilt_joint: tilt * Math.PI / 180 };
             if (previous.tiny2.joints.obsbot_pan_joint === joints.obsbot_pan_joint && previous.tiny2.joints.obsbot_tilt_joint === joints.obsbot_tilt_joint) return previous;
             return { ...previous, tiny2: { ...previous.tiny2, joints } };
-          })}/>
+          }); }}/>
           <section className="camera-mount-fields"><h4>Mount position & rotation</h4>
             {(["x", "y", "z", "roll", "pitch", "yaw"] as const).map(axis => {
               const position = axis === "x" || axis === "y" || axis === "z";
@@ -1023,7 +1037,7 @@ export default function App() {
           <span className={`status-dot ${ready === 3 ? "ready" : ""}`} />
           {ready === 3 ? "Workspace ready" : `${ready}/3 models loaded`}
         </span>
-        <span>{phase === "setup" ? "Scene preview · no hardware connection" : phase === "classifier" ? "Classifier definition · no training started" : "Camera comparison · linked pan/tilt controls"}</span>
+        <span>{phase === "setup" ? "Scene preview · no hardware connection" : phase === "training" ? "Local GPU training · live deck detection" : phase === "dataset" ? "Synthetic data · local rendering" : phase === "classifier" ? "Classifier definition · no training started" : "Camera comparison · linked pan/tilt controls"}</span>
         <span>
           {
             instruments.filter(
@@ -1034,7 +1048,7 @@ export default function App() {
             ).length
           }{" "}
           visible<span className="status-divider">/</span>
-          {phase === "classifier" ? `${classifier?.classes.length ?? 0} classes` : phase === "calibration" ? "Camera calibration" : `${state.present ? (info?.joints.length ?? "–") : 0} active controls`}
+          {(phase === "classifier" || phase === "dataset" || phase === "training") ? `${classifier?.classes.length ?? 0} classes` : phase === "calibration" ? "Camera calibration" : `${state.present ? (info?.joints.length ?? "–") : 0} active controls`}
         </span>
       </footer>
       {help && (

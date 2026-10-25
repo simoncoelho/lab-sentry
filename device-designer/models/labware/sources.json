@@ -1,0 +1,26 @@
+{
+  "retrieved": "2026-10-24",
+  "opentronsCommit": "ed9bab4896d3a7440e8e5bef4bc40ca0bb071802",
+  "communityModelCommit": "3b2ad88859cf231d75aa6f187e672bcaebbdab46",
+  "files": {
+    "corning-costar-96.glb": "e8a0b482f1f4b59f08050cbacbe8c7fe31345c464afbf9879e2424e5d523a29a",
+    "nest_12_reservoir_15ml.json": "f8dcd68f0dbb435774d68410b8fbf06e72232f8a6a0bb4ec758a6ad7f1553db6",
+    "nest_1_reservoir_195ml.json": "9f7f9677207b09adb065cf79c39fffa00d2f5198172203bb04e5d9133c15f73a",
+    "nest_96_wellplate_200ul_flat.json": "49e46334a0e76e5ec50b8b060c4bb0ae1dad54a9ce61a537211b923f05b785ba",
+    "opentrons_96_tiprack_10ul.json": "572b08db5b18b7f7fad43cb04e212fb446ad5049dbbb685a24bb94f5d60fe03b",
+    "opentrons_flex_96_filtertiprack_1000ul.json": "b3a64cf8e7bc6bae1c3023be29c640732f137c0158024e440e28b45b58758648",
+    "opentrons_flex_96_filtertiprack_200ul.json": "98ef0afc92fe95ca703183318b929b7536e1412f390497f59d73c30bf6ddece5",
+    "opentrons_flex_96_filtertiprack_50ul.json": "d718287e99b1e60ab3b41c9102fcc957221b7738bebbd9c765a67d0b00b9bfd9",
+    "nest_96_wellplate_2ml_deep.json": "fcd83ab9c43f204c2553e35456d4d7d63a92185e416b63e5e4b4a78e31985eb0"
+  },
+  "photoEvidence": {
+    "yellowRacks": "Label reads Opentrons FLEX 200 uL Filter Tip. Exact family identified.",
+    "D2": "Open clear rectangular labware; reservoir or lid/base remains uncertain. NEST 195 mL is only a candidate.",
+    "D3": "Clear low-profile 96-well plate. NEST 200 uL flat is a candidate; no visible SKU.",
+    "backgroundBox": "NEST 360112 is a 12-channel 15 mL reservoir; it does NOT identify the single-chamber item at D2."
+  },
+  "meshAvailability": "No exact public Flex 200 uL / Opentrons 10 uL tip rack meshes found in manufacturer repository, product pages, or community searches. Official definitions are not CAD. Runtime approximation is explicitly labeled.",
+  "communityLicense": "LabwareModels repository does not declare a license in the inspected tree. Downloaded for local evaluation; do not assume redistribution rights.",
+  "corningSource": "https://github.com/stefangolas/LabwareModels/blob/3b2ad88859cf231d75aa6f187e672bcaebbdab46/corning/costar_96w.glb",
+  "liveCameraEvidence": "2026-10-24: blue rack label reads 1000 uL Filter Tip; purple rack label reads 50 uL Filter Tip. 12-channel reservoir visible. Clear labware identities remain unconfirmed. B2/B3 tall translucent 96-well forms: NEST 2 mL deep-well is a dimensional candidate, exact SKU unconfirmed."
+}

@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import { deckSlots } from "./classifier";
+import { inferSlotState, type SlotState } from "./deck-state";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { TransformControls } from "three/addons/controls/TransformControls.js";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
@@ -9,6 +11,8 @@ import URDFLoader, { type URDFRobot } from "urdf-loader";
 import { opticalViewQuaternion, verticalFov } from "./camera-view";
 import { createLabBackdrop, createLabReflections } from "./lab-environment";
 import { defaultLighting, type Lighting } from "./lighting-match";
+import { captureObjectMasks } from "./dataset-masks";
+import { zoomedFov, type Detection, type Annotation, type DatasetAsset, type Recipe } from "./dataset";
 import { sceneOrientation, rotatedPose, surfaceMountedPose } from "./orientation";
 import {
   clamp,
@@ -107,15 +111,17 @@ export class InstrumentScene {
     );
     this.renderer.domElement.tabIndex = 0;
     host.appendChild(this.renderer.domElement);
-    this.scene.add(new THREE.HemisphereLight(0xf1f0e9, 0x78634b, .9));
-    const key = new THREE.DirectionalLight(0xfff9ed, 1.8);
+    // Broad room and enclosure lighting in the live deck reference produces
+    // gentle shading, not a strong sun-like gantry shadow across the plates.
+    this.scene.add(new THREE.HemisphereLight(0xf1f0e9, 0x78634b, 1.2));
+    const key = new THREE.DirectionalLight(0xfff9ed, .35);
     key.position.set(-1.5, 2.8, 1.2);
     key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
     Object.assign(key.shadow.camera, { left: -2, right: 2, top: 2, bottom: -2, near: .1, far: 8 });
     key.shadow.bias = -.0004; key.shadow.normalBias = .0015; key.shadow.radius = 3;
     this.scene.add(key);
-    const fill = new THREE.DirectionalLight(0xf0f6f3, 1.1);
+    const fill = new THREE.DirectionalLight(0xf0f6f3, .45);
     fill.position.set(1, 1.5, -.4);
     this.scene.add(fill);
     this.grid = new THREE.GridHelper(8, 80, 0x3b4b60, 0x253140);
@@ -604,7 +610,92 @@ export class InstrumentScene {
     if (!this.expected) return;
     this.expected.renderer.dispose(); this.expected.renderer.domElement.remove(); this.expected = undefined;
   }
-  private renderExpectedView() {
+  async captureDataset(recipe: Recipe, assets: DatasetAsset[], templates: Map<string, THREE.Group>, slots: string[], emptyClass: string) {
+    const flex = this.entries.get('flex')?.robot;
+    if (!flex || !this.expected) throw new Error('Load Flex and the camera view first.');
+    const placed: THREE.Object3D[] = [], previousLighting = this.lighting;
+    const tiny = this.entries.get('tiny2')?.robot;
+    const oldPan = tiny?.joints.obsbot_pan_joint.jointValue[0], oldTilt = tiny?.joints.obsbot_tilt_joint.jointValue[0];
+    const oldFov = this.expected.horizontalFov;
+    const gantryJoints = ['carriage_x_joint', 'gantry_y_joint', 'carriage_z_joint'] as const;
+    const oldGantry = gantryJoints.map(name => flex.joints[name]?.jointValue[0]);
+    try {
+      if (recipe.gantry) {
+        gantryJoints.forEach((name, i) => flex.setJointValue(name, [recipe.gantry!.x, recipe.gantry!.y, recipe.gantry!.z][i]));
+      }
+      if (recipe.camera && tiny) {
+        tiny.setJointValue('obsbot_pan_joint', THREE.MathUtils.degToRad(recipe.camera.pan));
+        tiny.setJointValue('obsbot_tilt_joint', THREE.MathUtils.degToRad(recipe.camera.tilt));
+        this.expected.horizontalFov = zoomedFov(oldFov, recipe.camera.zoom);
+      }
+      for (const placement of recipe.placements) {
+        const slot = flex.links[`slot_${placement.slot.toLowerCase()}`], template = templates.get(placement.assetId);
+        if (!slot || !template) throw new Error('A scene asset or slot is unavailable.');
+        const object = template.clone(true);
+        object.position.set(placement.offsetX / 1000, placement.offsetY / 1000, .003);
+        object.rotation.z = THREE.MathUtils.degToRad(placement.yaw);
+        object.updateMatrixWorld(true);
+        const footprint = new THREE.Box3().setFromObject(object);
+        if (footprint.min.x < -.079 || footprint.max.x > .079 || footprint.min.y < -.051 || footprint.max.y > .051) throw new Error('The proposed rotation or offset puts an asset outside its slot. Ask Codex for smaller rotations and centered placement.');
+        slot.add(object); placed.push(object);
+      }
+      this.setLighting({ exposure: previousLighting.exposure * recipe.exposure, tint: previousLighting.tint.map((v, i) => v * (1 + recipe.warmth * (i === 0 ? 1 : i === 2 ? -1 : 0))) as [number, number, number] });
+      let detections: Detection[] = [];
+      let wasteRecognized = false;
+      this.renderExpectedView([1280, 720], () => {
+        const masks = captureObjectMasks(this.expected!.renderer, this.scene, this.expected!.camera, [...placed, flex.links.waste_bin]);
+        const waste = masks.at(-1)!; wasteRecognized = waste.pixels >= 64 && !waste.review;
+        detections = masks.slice(0, placed.length).map((mask, i) => ({ ...mask, slot: recipe.placements[i].slot, assetId: recipe.placements[i].assetId, classId: assets.find(a => a.id === recipe.placements[i].assetId)!.classId }));
+      });
+      const view = this.expected, canvas = document.createElement('canvas');
+      canvas.width = 1280; canvas.height = 720;
+      canvas.getContext('2d')!.drawImage(view.renderer.domElement, 0, 0, 1280, 720);
+      view.camera.updateMatrixWorld(true);
+      const candidates: THREE.Object3D[] = [];
+      flex.traverse(o => {
+        if (!(o instanceof THREE.Mesh)) return;
+        if ((Array.isArray(o.material) ? o.material : [o.material]).some(m => m.name === 'polycarbonate')) return;
+        for (let p: THREE.Object3D | null = o; p && p !== flex; p = p.parent) if (!p.visible) return;
+        candidates.push(o);
+      });
+      const slotStates: SlotState[] = [];
+      const annotations: Annotation[] = deckSlots.map(name => {
+        const slot = flex.links[`slot_${name.toLowerCase()}`];
+        const projection = (x: number, y: number) => slot.localToWorld(new THREE.Vector3(x, y, 0)).project(view.camera);
+        const corners = [[-.064, -.043], [.064, -.043], [.064, .043], [-.064, .043]].map(([x, y]) => projection(x, y));
+        let visible = 0;
+        const ownObject = name === "A3" ? flex.links.waste_bin : placed[recipe.placements.findIndex(p => p.slot === name)];
+        for (const x of [-.05, 0, .05]) for (const y of [-.03, 0, .03]) {
+          const p = projection(x, y);
+          if (Math.abs(p.x) > 1 || Math.abs(p.y) > 1 || p.z < -1 || p.z > 1) continue;
+          const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(p.x, p.y), view.camera);
+          const hit = ray.intersectObjects(candidates, false)[0];
+          if (hit) {
+            const point = slot.localToWorld(new THREE.Vector3(x, y, 0));
+            let own = false;
+            for (let parent: THREE.Object3D | null = hit.object; parent; parent = parent.parent) if (parent === ownObject || parent === slot) own = true;
+            if (own || Math.abs(hit.distance - ray.ray.origin.distanceTo(point)) < .008) visible++;
+          }
+        }
+        const placement = recipe.placements.find(p => p.slot === name), asset = assets.find(a => a.id === placement?.assetId);
+        const fullyInFrame = corners.every(p => Math.abs(p.x) <= 1 && Math.abs(p.y) <= 1 && p.z >= -1 && p.z <= 1);
+        const front = corners.every(p => p.z >= -1 && p.z <= 1);
+        const polygon = front ? corners.map(p => [(p.x + 1) * 640, (1 - p.y) * 360]) : null;
+        const detection = detections.find(d => d.slot === name);
+        slotStates.push(inferSlotState({ slot: name, inFrame: fullyInFrame, visibility: visible / 9, occupied: !!placement || name === 'A3', recognized: name === 'A3' ? wasteRecognized : !!detection && !detection.review && detection.pixels >= 64, classId: name === 'A3' ? 'fixed-waste-bin' : asset?.classId ?? null, assetId: name === 'A3' ? 'fixed-waste-bin' : asset?.id ?? null, polygon }));
+        return { slot: name, classId: asset?.classId || emptyClass || null, assetId: asset?.id || null, polygon: corners.map(p => [(p.x + 1) * 640, (1 - p.y) * 360]), visibility: visible / 9, review: !fullyInFrame || visible < 7 || !(asset?.classId || emptyClass) };
+      });
+      const image = await new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Could not encode the rendered image.')), 'image/png'));
+      return { image, annotations: annotations.filter(a => slots.includes(a.slot)), slotStates, slotStateVersion: 1 as const, detections, cameraMatrix: view.camera.matrixWorld.toArray() };
+    } finally {
+      placed.forEach(o => o.removeFromParent());
+      gantryJoints.forEach((name, i) => { if (oldGantry[i] !== undefined) flex.setJointValue(name, oldGantry[i]!); });
+      if (tiny && oldPan !== undefined && oldTilt !== undefined) { tiny.setJointValue('obsbot_pan_joint', oldPan); tiny.setJointValue('obsbot_tilt_joint', oldTilt); }
+      if (this.expected) this.expected.horizontalFov = oldFov;
+      this.setLighting(previousLighting);
+    }
+  }
+  private renderExpectedView(outputSize?: [number, number], captureMasks?: () => void) {
     const view = this.expected;
     const optical = this.entries.get("tiny2")?.robot?.links.obsbot_camera_optical_frame;
     if (!view || !optical || !this.workspace?.tiny2.present) return;
@@ -614,7 +705,7 @@ export class InstrumentScene {
     view.camera.aspect = view.aspect;
     view.camera.fov = verticalFov(view.horizontalFov, view.aspect);
     view.camera.updateProjectionMatrix();
-    const width = Math.max(1, view.host.clientWidth), height = Math.max(1, view.host.clientHeight);
+    const width = outputSize?.[0] ?? Math.max(1, view.host.clientWidth), height = outputSize?.[1] ?? Math.max(1, view.host.clientHeight);
     const size = view.renderer.getSize(new THREE.Vector2());
     if (size.x !== width || size.y !== height) view.renderer.setSize(width, height);
     // Letterbox the modeled image just like the live video, including when
@@ -649,7 +740,7 @@ export class InstrumentScene {
         if (materials.every(material => material.name === "polycarbonate")) visible(object, true);
       }
     });
-    try { view.renderer.render(this.scene, view.camera); }
+    try { captureMasks?.(); view.renderer.render(this.scene, view.camera); }
     finally { for (const [object, previous] of restore.reverse()) object.visible = previous; }
   }
 

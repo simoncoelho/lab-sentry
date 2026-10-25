@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 
 export default defineConfig({
   base: "./",
-  server: { proxy: {
+  server: { watch: { ignored: ['**/training/**', '**/.venv/**', '**/runs/**'] }, proxy: {
+    "/training-api": { target: "http://127.0.0.1:5102", rewrite: path => path.replace(/^\/training-api/, "") },
     "/camera-api": { target: "http://127.0.0.1:5101", rewrite: path => path.replace(/^\/camera-api/, "") },
     "/video-api": { target: "http://127.0.0.1:5100", rewrite: path => path.replace(/^\/video-api/, "") },
   } },
