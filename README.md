@@ -20,6 +20,8 @@ Local camera-based Opentrons Flex deck detection. Two included YOLO26n models id
 
 `tools/mac_camera.py` replaces the Windows video (5100) and control (5101) services with the same API: AVFoundation video through OpenCV, and pan/tilt/zoom through standard USB Video Class requests (no administrator rights). The camera wakes when video starts, then detection restores the saved PTZ. `LAB_SENTRY_CAMERA` selects a camera by index or name. Logs are in `.runtime/logs/`. Tested on Apple silicon with an OBSBOT Tiny SE; the LAN gateway (`start-lan.ps1`) is Windows-only, so read the local API at `127.0.0.1:5102`.
 
+To mount the camera so the included model accepts its view, run detection and then `.runtime/python/bin/python tools/alignment_meter.py`: once a second it applies detection's own landmark matching to the live frame and reports when detection accepts it. On Apple silicon, **Train YOLO** uses the Apple GPU (MPS) when no NVIDIA GPU is present.
+
 ## Camera placement matters
 
 The included setup and models are for the existing fixed deck camera mount and its saved pan/tilt/zoom. Starting detection restores those settings. They recognize **Tip rack, Microplate, Reservoir** and all 12 deck positions; they do not identify arbitrary labware SKUs.
