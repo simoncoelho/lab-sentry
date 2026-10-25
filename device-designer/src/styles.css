@@ -1683,3 +1683,87 @@ svg {
 .alignment-lens { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #a9b6c8; margin: 10px 0; }
 .alignment-lens input { width: auto; }
 @media (max-width: 700px) { .alignment-images { grid-template-columns: 1fr; } .alignment-dialog footer { flex-wrap: wrap; } }
+/* Phase 03: classifier definition, separate from the camera and scene controls. */
+.phase-classifier > .library, .phase-classifier > .viewport, .phase-classifier > .inspector { display: none; }
+.classifier-designer { grid-column: 1 / -1; grid-row: 3; min-height: 0; overflow: auto; padding: 28px; background: #10151d; }
+.classifier-heading, .classifier-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.classifier-heading { margin-bottom: 26px; }
+.classifier-heading h1 { font-size: 26px; letter-spacing: -.7px; margin: 8px 0; }
+.classifier-heading p { color: var(--muted); margin: 0; font-size: 13px; }
+.classifier-layout { display: grid; grid-template-columns: minmax(230px, .9fr) minmax(320px, 1.5fr) minmax(250px, 1fr); gap: 18px; align-items: start; }
+.classifier-card { border: 1px solid var(--border); border-radius: 12px; padding: 22px; background: #171e29; }
+.classifier-card h2 { font-size: 15px; margin: 0 0 20px; }
+.classifier-card h2 small { color: #92a4be; font-size: 11px; margin-left: 8px; }
+.classifier-section-heading { margin-bottom: 20px; }
+.classifier-section-heading h2 { margin: 0; }
+.classifier-card label { display: flex; flex-direction: column; gap: 8px; font-size: 11px; color: #adbacd; margin-bottom: 18px; }
+.classifier-card input, .classifier-card select, .classifier-card textarea { width: 100%; min-width: 0; border: 1px solid #354053; border-radius: 6px; background: #111721; color: #e8eef7; padding: 10px; font: inherit; font-size: 12px; }
+.classifier-card textarea { resize: vertical; min-height: 88px; line-height: 1.6; }
+.classifier-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.classifier-note { color: #8f9db1; font-size: 11px; line-height: 1.6; }
+.classifier-class-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+.classifier-class-list button { font-size: 11px; gap: 8px; }
+.classifier-class-list i { width: 7px; height: 7px; border-radius: 50%; }
+.classifier-class-list button[aria-pressed="true"], .classifier-slots button[aria-pressed="true"] { background: #263b56; border-color: #688bb9; color: #e6effe; }
+.classifier-delete { color: #e8a6b4; font-size: 11px; }
+.classifier-total { margin: 4px 0 22px; display: flex; flex-direction: column; gap: 6px; }
+.classifier-total strong { font-size: 32px; font-weight: 500; letter-spacing: -1px; }
+.classifier-total span { color: #8f9db1; font-size: 11px; }
+.classifier-card fieldset { margin: 12px 0 22px; padding: 0; border: 0; }
+.classifier-card legend { color: #adbacd; font-size: 11px; margin-bottom: 12px; }
+.classifier-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.classifier-variations label { flex-direction: row; align-items: center; margin-bottom: 10px; }
+.classifier-variations input { width: 14px; height: 14px; accent-color: #aec9ef; }
+.classifier-readiness { border-top: 1px solid #354053; padding-top: 18px; margin-bottom: 20px; font-size: 12px; }
+.classifier-readiness p, .classifier-readiness ul { font-size: 11px; line-height: 1.7; color: #9dadc4; }
+.classifier-readiness ul { padding-left: 16px; }
+.classifier-empty { min-height: 260px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #8f9db1; }
+.classifier-empty h3 { color: #dce7f8; font-size: 15px; margin-bottom: 0; }
+.classifier-empty p { font-size: 12px; max-width: 230px; line-height: 1.6; }
+.classifier-template { margin-bottom: 20px; width: 100%; font-size: 10px; }
+@media (max-width: 1000px) { .classifier-layout { grid-template-columns: 1fr 1.4fr; } .classifier-dataset { grid-column: 1 / -1; } .workflow-bar { flex-wrap: wrap; } }
+@media (max-width: 700px) { .phase-classifier { display: flex; flex-direction: column; height: 100dvh; } .classifier-designer { padding: 16px; flex: 1; } .classifier-layout { grid-template-columns: 1fr; } .classifier-heading { align-items: flex-start; } .workflow-bar nav { flex-wrap: wrap; } }
+.classifier-variations { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+.classifier-designer { padding: 22px 28px; }
+.classifier-heading { margin-bottom: 20px; }
+.classifier-heading h1 { font-size: 23px; margin: 6px 0; }
+.classifier-card { padding: 18px; }
+.classifier-card label { margin-bottom: 14px; }
+.classifier-card textarea { min-height: 78px; }
+.classifier-heading p { display: none; }
+.classifier-heading { margin-bottom: 16px; }
+.classifier-card label { margin-bottom: 12px; }
+.classifier-total { margin-bottom: 16px; }
+.classifier-card fieldset { margin-bottom: 14px; }
+.classifier-readiness { margin-bottom: 14px; padding-top: 14px; }
+.classifier-mode { display:flex; gap:8px; margin:0 0 16px; }
+.classifier-mode button[aria-pressed=true] { background:#273d55; color:#b9d8ff; }
+.classifier-mode button:last-child { margin-left:auto; }
+.copilot-layout { display:grid; grid-template-columns:minmax(340px,1.3fr) minmax(300px,1fr); gap:18px; height:calc(100vh - 282px); min-height:380px; }
+.copilot-chat { display:flex; flex-direction:column; min-height:0; }
+.copilot-chat h2 small { margin-left:10px; font-weight:400; }
+.copilot-messages { flex:1; overflow:auto; padding:12px 0; }
+.copilot-welcome { margin:12% auto; max-width:360px; }
+.copilot-welcome h2 { font-size:22px; line-height:1.4; }
+.copilot-welcome p,.copilot-draft>p { color:var(--muted); font-size:13px; line-height:1.7; }
+.copilot-welcome button { margin-top:14px; }
+.copilot-message { margin:10px 0 22px; padding:0 10px; }
+.copilot-message.user { padding:12px 16px; background:#202b3b; border-radius:12px; margin-left:36px; }
+.copilot-message small { color:var(--muted); font-size:10px; }
+.copilot-message p { white-space:pre-wrap; font-size:13px; line-height:1.7; margin:6px 0; }
+.copilot-composer { display:flex; gap:8px; align-items:flex-end; border:1px solid #39495d; border-radius:12px; padding:8px; background:#111721; }
+.copilot-composer textarea { flex:1; resize:none; height:66px; border:0; background:transparent; padding:8px; margin:0; }
+.copilot-composer button { height:34px; width:34px; justify-content:center; }
+.copilot-draft { overflow:auto; }
+.copilot-draft h3 { font-size:18px; margin:20px 0 8px; }
+.copilot-labels>div { display:flex; gap:10px; padding:13px 0; border-bottom:1px solid var(--border); }
+.copilot-labels i { width:8px; height:8px; border-radius:50%; margin-top:4px; flex-shrink:0; }
+.copilot-labels strong { font-size:12px; }
+.copilot-labels p { font-size:12px; color:var(--muted); line-height:1.5; margin:5px 0; }
+.copilot-labels small { font-size:11px; color:var(--muted); }
+.copilot-plan { display:flex; flex-wrap:wrap; gap:8px; padding:18px 0; font-size:11px; color:var(--muted); }
+.copilot-plan span { background:#202b3b; padding:7px; border-radius:5px; }
+.copilot-draft>button { margin-right:8px; }
+.copilot-error { color:#f0ad9d; font-size:12px; line-height:1.5; }
+.copilot-thinking { color:var(--muted); font-size:12px; }
+@media(max-width:800px) { .copilot-layout { grid-template-columns:1fr; height:auto; } .copilot-chat { min-height:450px; } .copilot-draft { max-height:500px; } }

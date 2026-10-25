@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 import { STORAGE_KEY, snapshot, parseWorkspace, matchesSaved, type SavedWorkspace } from "./workspace-file";
 import { defaultLighting, type Lighting } from "./lighting-match";
+import { ClassifierDesigner } from "./ClassifierDesigner";
+import { createClassifier, classifierIssues, type ClassifierDesign } from "./classifier";
 import { CameraComparison } from "./CameraComparison";
 import { CameraHardwareControls } from "./CameraHardwareControls";
 import { InstrumentScene, type ModelInfo } from "./scene";
@@ -181,7 +183,8 @@ export default function App() {
   const [workspaceName, setWorkspaceName] = useState(restored.saved?.name || "My lab workspace");
   const [lighting, setLighting] = useState<Lighting>(restored.saved?.view.lighting ?? defaultLighting);
   const [horizontalFov, setHorizontalFov] = useState(restored.saved?.view.horizontalFov ?? 70);
-  const [phase, setPhase] = useState<"setup" | "calibration">("setup");
+  const [phase, setPhase] = useState<"setup" | "calibration" | "classifier">("setup");
+  const [classifier, setClassifier] = useState<ClassifierDesign | undefined>(restored.saved?.classifier);
   const [saveError, setSaveError] = useState(restored.error);
   const [reference, setReference] = useState<{ url: string; name: string } | null>(null);
   const [imageError, setImageError] = useState("");
@@ -318,12 +321,15 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       if (
         e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement ||
         e.ctrlKey ||
         e.metaKey ||
         e.altKey
       )
         return;
-      if (help && e.key !== "Escape") return;
+      if (e.key === "Escape") { setHelp(false); setMounting(false); return; }
+      if (help || phase !== "setup") return;
       if (e.key.toLowerCase() === "f" && state.present) {
         e.preventDefault();
         scene.current?.focus(selected);
@@ -336,12 +342,12 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selected, help, state.present]);
+  }, [selected, help, state.present, phase]);
 
-  const clean = matchesSaved(saved, workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting });
+  const clean = matchesSaved(saved, workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting }, classifier);
   const setupReady = activeInstruments.length > 0 && activeInstruments.every(i => loads[i.id]?.info) && !sceneError;
   function saveSetup(continueToCalibration = false) {
-    const next = snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting });
+    const next = snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting }, classifier);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       setSaved(next);
@@ -354,8 +360,23 @@ export default function App() {
       return true;
     } catch { setSaveError("Saving failed. Your setup is still here. Export it as a file, or free browser storage and try again."); return false; }
   }
+  function openClassifier() {
+    if (!saveSetup()) return;
+    setClassifier(previous => previous ?? createClassifier());
+    setMounting(false); setIsolated(false); setPhase("classifier");
+  }
+  function exportClassifier() {
+    if (!classifier || classifierIssues(classifier).length || !saveSetup()) return;
+    const context = snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting }, classifier);
+    const spec = { kind: "lab-sentry.classifier-spec", version: 1, workspace: context,
+      labelingPolicy: { ambiguous: "manual_review", splitBy: "capture_session", generatedImages: 0 } };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(spec, null, 2)], { type: "application/json" }));
+    const link = document.createElement("a"); link.href = url;
+    link.download = `${classifier.name.replace(/[^a-z0-9_-]+/gi, "-") || "classifier"}.classifier.json`;
+    link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
   function exportSetup() {
-    const next = snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting });
+    const next = snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting }, classifier);
     const url = URL.createObjectURL(new Blob([JSON.stringify(next, null, 2)], { type: "application/json" }));
     const link = document.createElement("a"); link.href = url;
     link.download = `${next.name.replace(/[^a-z0-9_-]+/gi, "-")}.workspace.json`;
@@ -403,7 +424,7 @@ export default function App() {
         </div>
         <div className="top-actions">
           <span className="mode-tag">
-            <span /> {phase === "setup" ? "LOCAL SIMULATION" : "CAMERA COMPARISON"}
+            <span /> {phase === "setup" ? "LOCAL SIMULATION" : phase === "classifier" ? "CLASSIFIER DESIGN" : "CAMERA COMPARISON"}
           </span>
           <button
             className="icon-button"
@@ -421,16 +442,19 @@ export default function App() {
           <button aria-current={phase === "setup" ? "step" : undefined} onClick={() => setPhase("setup")}><span>01</span> Workspace setup {clean && <Check size={13} />}</button>
           <ChevronRight size={14} />
           <button aria-current={phase === "calibration" ? "step" : undefined} disabled={!clean || !setupReady || !workspace.tiny2.present} onClick={() => { setMounting(false); setIsolated(false); setTab("joints"); setPhase("calibration"); }}><span>02</span> Camera calibration</button>
+          <ChevronRight size={14} />
+          <button aria-current={phase === "classifier" ? "step" : undefined} disabled={!setupReady || !workspace.tiny2.present} onClick={openClassifier}><span>03</span> Classifier design</button>
         </nav>
         <div className="workflow-save">
           <span className={clean ? "saved-state" : "draft-state"} role="status">{clean ? "Saved on this browser" : saved ? "Unsaved changes" : "Not saved yet"}</span>
           {phase === "setup" ? <>
             <button disabled={!setupReady} onClick={() => saveSetup()}>Save workspace</button>
             <button className="primary-action" title={!workspace.tiny2.present ? "Add Tiny 2 to continue to camera calibration" : "Save this configuration and open camera calibration"} disabled={!setupReady || !workspace.tiny2.present} onClick={() => saveSetup(true)}>Save & continue <ChevronRight size={14} /></button>
-          </> : <button onClick={() => setPhase("setup")}>Edit workspace</button>}
+          </> : <><button onClick={() => setPhase("setup")}>Edit workspace</button>{phase === "calibration" && <button className="primary-action" onClick={openClassifier}>Save & continue <ChevronRight size={14}/></button>}</>}
         </div>
       </section>
       {saveError && <div className="save-error" role="alert">{saveError}<button onClick={() => setSaveError("")} aria-label="Dismiss save error"><X size={13}/></button></div>}
+      {phase === "classifier" && classifier && <ClassifierDesigner design={classifier} onChange={setClassifier} onSave={() => saveSetup()} onExport={exportClassifier} clean={clean} workspaceName={workspaceName}/>}
       {phase === "setup" ? <aside className="library">
         <div className="panel-heading">
           <span>INSTRUMENTS</span>
@@ -447,7 +471,7 @@ export default function App() {
               try {
                 if (file.size > 1000000) throw new Error("Workspace file is too large.");
                 const next = parseWorkspace(await file.text());
-                setWorkspace(structuredClone(next.workspace)); setWorkspaceName(next.name); setAcrylicVisible(next.view.acrylicVisible); setGrid(next.view.grid); setHorizontalFov(next.view.horizontalFov ?? 70); setLighting(next.view.lighting ?? defaultLighting);
+                setWorkspace(structuredClone(next.workspace)); setWorkspaceName(next.name); setAcrylicVisible(next.view.acrylicVisible); setGrid(next.view.grid); setHorizontalFov(next.view.horizontalFov ?? 70); setLighting(next.view.lighting ?? defaultLighting); setClassifier(next.classifier);
                 setMounting(false); setIsolated(false); setSaveError("");
                 setSelected(instruments.find(i => next.workspace[i.id].present)?.id || "flex");
               } catch { setSaveError("Could not open that workspace file. Your current setup has been kept."); }
@@ -550,7 +574,7 @@ export default function App() {
       </aside>}
 
       <main className="viewport">
-        {phase === "calibration" && <CameraComparison lighting={lighting} setLighting={setLighting} pose={workspace.tiny2.pose} onPose={pose => setWorkspace(previous => ({ ...previous, tiny2: { ...previous.tiny2, pose } }))} onAngles={(pan, tilt) => setWorkspace(previous => ({ ...previous, tiny2: { ...previous.tiny2, joints: { ...previous.tiny2.joints, obsbot_pan_joint: pan * Math.PI / 180, obsbot_tilt_joint: tilt * Math.PI / 180 } } }))} onSave={() => saveSetup()} fov={horizontalFov} setFov={setHorizontalFov} scene={scene.current} cameraControls={<>
+        {phase === "calibration" && <CameraComparison onContinue={openClassifier} lighting={lighting} setLighting={setLighting} pose={workspace.tiny2.pose} onPose={pose => setWorkspace(previous => ({ ...previous, tiny2: { ...previous.tiny2, pose } }))} onAngles={(pan, tilt) => setWorkspace(previous => ({ ...previous, tiny2: { ...previous.tiny2, joints: { ...previous.tiny2.joints, obsbot_pan_joint: pan * Math.PI / 180, obsbot_tilt_joint: tilt * Math.PI / 180 } } }))} onSave={() => saveSetup()} fov={horizontalFov} setFov={setHorizontalFov} scene={scene.current} cameraControls={<>
           <CameraHardwareControls onReading={(pan, tilt) => setWorkspace(previous => {
             const joints = { ...previous.tiny2.joints, obsbot_pan_joint: pan * Math.PI / 180, obsbot_tilt_joint: tilt * Math.PI / 180 };
             if (previous.tiny2.joints.obsbot_pan_joint === joints.obsbot_pan_joint && previous.tiny2.joints.obsbot_tilt_joint === joints.obsbot_tilt_joint) return previous;
@@ -706,7 +730,7 @@ export default function App() {
             }} /></label>
             {imageError && <p role="alert">{imageError}</p>}
             {reference && <figure><img src={reference.url} alt="Camera calibration reference" onError={() => { setImageError("This image could not be decoded. Choose another image."); setReference(null); }}/><figcaption>{reference.name}</figcaption><button onClick={() => setReference(null)}>Remove reference image</button></figure>}
-            <div className="calibration-next"><span className="small-label">NEXT: VIEW ALIGNMENT</span><p>Link camera controls to synchronize reported pan/tilt with the model. Match the mount pose, then tune field of view. Calibration has not been solved yet.</p></div>
+            <div className="calibration-next"><span className="small-label">NEXT: VIEW ALIGNMENT</span><p>Align the camera and lighting, then save and continue to define your classifier.</p></div>
           </div>
         ) : state.present ? (
           <>
@@ -999,7 +1023,7 @@ export default function App() {
           <span className={`status-dot ${ready === 3 ? "ready" : ""}`} />
           {ready === 3 ? "Workspace ready" : `${ready}/3 models loaded`}
         </span>
-        <span>{phase === "setup" ? "Scene preview · no hardware connection" : "Camera comparison · linked pan/tilt controls"}</span>
+        <span>{phase === "setup" ? "Scene preview · no hardware connection" : phase === "classifier" ? "Classifier definition · no training started" : "Camera comparison · linked pan/tilt controls"}</span>
         <span>
           {
             instruments.filter(
@@ -1010,7 +1034,7 @@ export default function App() {
             ).length
           }{" "}
           visible<span className="status-divider">/</span>
-          {phase === "calibration" ? "Camera calibration" : `${state.present ? (info?.joints.length ?? "–") : 0} active controls`}
+          {phase === "classifier" ? `${classifier?.classes.length ?? 0} classes` : phase === "calibration" ? "Camera calibration" : `${state.present ? (info?.joints.length ?? "–") : 0} active controls`}
         </span>
       </footer>
       {help && (

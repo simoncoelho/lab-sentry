@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { codexCopilot } from "./codex-copilot.mjs";
 import { cpSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -10,6 +11,7 @@ export default defineConfig({
     "/video-api": { target: "http://127.0.0.1:5100", rewrite: path => path.replace(/^\/video-api/, "") },
   } },
   plugins: [
+    codexCopilot(),
     react(),
     {
       name: "include-urdf-assets",

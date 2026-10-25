@@ -5,7 +5,8 @@ import { defaultLighting, matchLighting, sampleFrame, type Lighting } from "./li
 import type { Pose } from "./state";
 import { CameraAlignment, type Capture } from "./CameraAlignment";
 
-export function CameraComparison({ scene, cameraControls, fov, setFov, pose, onPose, onAngles, onSave, lighting, setLighting }: {
+export function CameraComparison({ scene, cameraControls, fov, setFov, pose, onPose, onAngles, onSave, lighting, setLighting, onContinue }: {
+  onContinue: () => void;
   lighting: Lighting; setLighting: (value: Lighting) => void;
   scene: InstrumentScene | null; cameraControls: ReactNode; fov: number; setFov: (value: number) => void;
   pose: Pose; onPose: (pose: Pose) => void; onAngles: (pan: number, tilt: number) => void; onSave: () => boolean;
@@ -169,6 +170,7 @@ export function CameraComparison({ scene, cameraControls, fov, setFov, pose, onP
   return <section className={`camera-comparison${fullView ? " comparison-full-view" : ""}`} style={{ "--camera-aspect": aspect } as CSSProperties} aria-label="Expected and actual camera views">
     <header><div><span className="small-label">CAMERA VIEW COMPARISON</span><h2>Camera alignment</h2></div><div className="comparison-actions"><button disabled={status !== "live" || starting || !!capture} title="Estimate brightness and color from the current frame. Align the camera first." onClick={matchCurrentLighting}>Match lighting</button>{JSON.stringify(lighting) !== JSON.stringify(defaultLighting) && <button title="Restore the reference lab lighting" onClick={() => { setLighting(defaultLighting); setAlignmentMessage("Lighting reset. Save workspace to keep it."); }}>Reset lighting</button>}<button className="primary-action" disabled={status !== "live" || starting || !!preview} onClick={() => void startAlignment()}>{starting ? "Settling..." : "Align camera"}</button><button aria-expanded={showControls} aria-controls="comparison-camera-controls" onClick={() => setShowControls(value => !value)}>Camera controls</button><span className={`camera-status ${status}`} role="status">{status === "live" ? "Live camera" : status === "connecting" ? "Connecting..." : "Camera disconnected"}</span>{status === "live" && <>
       <button onClick={() => setExpanded(value => !value)}>{fullView ? "Back to workspace" : "Full view"}</button>
+      {fullView && <button className="primary-action" onClick={onContinue}>Save & continue</button>}
       {fullView && <button onClick={disconnect}><Unplug size={14}/>Disconnect</button>}
     </>}</div></header>
     {preview && <div className="alignment-review"><span>Preview  /  fit error {(preview.rms * 100).toFixed(2)}% of image dimensions</span><button onClick={() => { onPose(preview.pose); setFov(preview.fov); setPreview(null); }}>Discard alignment</button><button className="primary-action" onClick={() => { if (onSave()) { setPreview(null); setAlignmentMessage("Alignment saved to workspace"); } }}>Save alignment to workspace</button></div>}
