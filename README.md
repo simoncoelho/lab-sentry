@@ -2,61 +2,63 @@
 
 ![Lab Sentry generating labeled synthetic training images](docs/media/generate-dataset.gif)
 
-Local camera-based Opentrons Flex deck detection. Two included YOLO26n models identify labware and deck-slot states. The app shows a live camera view, a 3D deck, and a REST/SSE state API.
+Build custom vision models for your lab using synthetic images from a camera-matched 3D environment. Describe what you want to detect, generate labeled scenes, train a YOLO model, and run it against your camera.
 
-## Windows quick start
+Includes an Opentrons Flex deck setup with trained models for tip racks, microplates, reservoirs, and all 12 deck slots. View detections on a live 3D deck or read the state through REST and SSE.
 
-1. Download this repository from GitHub (**Code → Download ZIP**) and **extract it** to a writable folder. Windows 11 x64 is the tested target; allow a few GB of free space for dependencies.
-2. Double-click **Setup.cmd**. First setup needs internet. It installs missing Node.js LTS, .NET 10 SDK, and uv using Windows Package Manager, then installs a private Python environment with **CPU PyTorch**, camera support, and the app. Follow any installer prompts. If Windows Package Manager is unavailable, install those three prerequisites manually and rerun setup.
-3. Connect the OBSBOT by USB. Close OBSBOT Center, Windows Camera, and other apps using it.
-4. Double-click **Start.cmd**. Keep its console window open. The browser opens at **http://127.0.0.1:5173/**.
-5. Choose **Flex deck – included setup** in **Open workspace**, then **05 Train & run → Run detection**. The included **Flex deck – ready to run** model needs no dataset generation or training. **06 Serve** shows the live 3D deck and API.
+## Get started
 
-**No NVIDIA GPU, API key, Codex login, Git installation, or sibling repository is needed for detection.** CPU speed depends on the PC; the UI only reports actual completed observations. `Ctrl+C` in the launcher stops its services. Run Setup again after downloading an update, with the app stopped.
+### Windows
 
-## macOS quick start
+1. Download the repository (**Code → Download ZIP**) and extract it.
+2. Run **Setup.cmd**. It installs the dependencies and needs internet on first run.
+3. Connect your OBSBOT by USB and close other apps using the camera.
+4. Run **Start.cmd**. The app opens at [localhost:5173](http://127.0.0.1:5173/).
+5. In **Open workspace**, choose **Flex deck – included setup**. Go to **Train & run**, select **Flex deck – ready to run**, and click **Run detection**.
 
-1. Clone the repository. In Terminal (not an embedded terminal: macOS grants camera access per app), run `tools/setup-mac.sh`. It installs a private Python 3.13 with CPU PyTorch, Node.js 24 and the web app under `.runtime/`; the system Python and Node are untouched.
-2. Connect the OBSBOT by USB and close other apps using it.
-3. Run `tools/start-mac.sh` and allow camera access for Terminal when asked. The browser opens at **http://127.0.0.1:5173/**; continue as in step 5 above.
+Detection runs on CPU. No NVIDIA GPU or Codex login required. Keep the launcher open while using the app; press `Ctrl+C` to stop. After an update, stop the app and rerun **Setup.cmd**.
 
-`tools/mac_camera.py` replaces the Windows video (5100) and control (5101) services with the same API: AVFoundation video through OpenCV, and pan/tilt/zoom through standard USB Video Class requests (no administrator rights). The camera wakes when video starts, then detection restores the saved PTZ. `LAB_SENTRY_CAMERA` selects a camera by index or name. Logs are in `.runtime/logs/`. Tested on Apple silicon with an OBSBOT Tiny SE; the LAN gateway (`start-lan.ps1`) is Windows-only, so read the local API at `127.0.0.1:5102`.
+Tested on Windows 11 x64. If automatic dependency installation fails, install Node.js LTS, .NET 10 SDK, and uv, then rerun setup.
 
-To mount the camera so the included model accepts its view, run detection and then `.runtime/python/bin/python tools/alignment_meter.py`: once a second it applies detection's own landmark matching to the live frame and reports when detection accepts it. On Apple silicon, **Train YOLO** uses the Apple GPU (MPS) when no NVIDIA GPU is present.
+### macOS
 
-## Camera placement matters
+Clone the repository and run these commands from its folder in Terminal:
 
-The included setup and models are for the existing fixed deck camera mount and its saved pan/tilt/zoom. Starting detection restores those settings. They recognize **Tip rack, Microplate, Reservoir** and all 12 deck positions; they do not identify arbitrary labware SKUs.
+```sh
+tools/setup-mac.sh
+tools/start-mac.sh
+```
 
-On a different mount, the saved geometry is not automatically correct. Unknown slots / “View changed” mean the reference does not match. Recalibrate and prepare a model for that view using the authoring workflow before relying on slot locations. Do not treat unknown as empty. This is a synthetic-trained baseline adapted to one real layout, not a validated laboratory interlock.
+Connect the OBSBOT, close other camera apps, and allow Terminal camera access when prompted. Open the included workspace and run detection as above.
 
-The tested physical camera identifies as **OBSBOT Tiny SE StreamCamera**. The scene's Tiny 2 model does not imply every OBSBOT model has been hardware-tested. Camera video/control are local Windows DirectShow services, downloaded from a pinned revision of [obsbot-control](https://github.com/simoncoelho/obsbot-control) during setup. FFmpeg is not required by the launcher.
+Tested on Apple silicon with an OBSBOT Tiny SE. Dependencies stay inside `.runtime/`. Training uses the Apple GPU through MPS.
 
-## CPU inference vs. training
+## Use your own setup
 
-Start.cmd defaults to CPU inference, including on NVIDIA machines. To use an existing CUDA-enabled Python installation, the developer launcher remains `training/start.ps1`; `LAB_SENTRY_DEVICE=auto|cpu|cuda` selects inference hardware. The packaged CPU Python environment cannot train on CUDA. Fine-tuning is optional and still requires an NVIDIA GPU and a CUDA PyTorch environment; see [training/README.md](training/README.md). Classifier/dataset copilot authoring additionally requires the user's own Codex CLI login. Neither is required to run the included detector.
+Set up the scene, match the simulated camera to your real camera, then work with the copilot to define your detection task. Generate labeled images, review camera effects, and train a model. The copilot requires a Codex CLI login. See [training instructions](training/README.md) for GPU setup and validation.
 
-## Files and model handoff
+The included model uses a fixed camera position and restores its saved pan, tilt, and zoom. A different mount needs its own calibration and model. Unknown slots are not empty slots. The bundled model was trained on synthetic images with one labeled real image for adaptation.
 
-- `bundled/deck/`: both weights, metrics, camera reference, calibration manifest, and importable `workspace.json`. Paths are relative so moving the checkout works.
-- `training/runs/`: locally trained models; not committed. **Model & validation → Download model** exports a portable ZIP. Extract a trusted export into `training/runs/<model-id>/` and restart the app. Import its `workspace.json` through Open workspace. Only load trusted model files; PyTorch checkpoints are executable formats.
-- `.runtime/`: private Python environment, camera binaries and logs. Recreated by Setup; not committed.
-- `.dependencies/`: pinned camera source. Setup downloads this automatically; no manual clone.
-- Browser storage: saved setups and generated datasets. Export a setup to move it between browsers/PCs. Generated training images are not included in this handoff.
+Export workspaces to move them between computers. **Model & validation → Download model** saves a model ZIP. Extract a trusted model export into `training/runs/<model-id>/`, restart the app, and import its `workspace.json`. Generated datasets and saved setups live in browser storage.
 
-## API (unchanged)
+## State API
 
-Local: `http://127.0.0.1:5102/api/v1/deck-state` and `/api/v1/deck-state/stream` (SSE). All 12 positions are returned, with unknown on stale/invalid observations. The existing schema remains unchanged.
+Open **Serve** to see the live deck and API response.
 
-Optional LAN access: run `training/start-lan.ps1` and follow [the LAN setup instructions](training/README.md#local-network-access). It exposes only the read-only state API; the app, camera and control services remain loopback-only. No firewall or router changes are made by Setup/Start.
+```text
+GET http://127.0.0.1:5102/api/v1/deck-state
+GET http://127.0.0.1:5102/api/v1/deck-state/stream
+```
+
+The first endpoint returns JSON; the second streams updates over SSE. Both report all 12 slots, including empty, occupied, obscured, and unknown states. Stale observations return unknown.
+
+For Windows LAN access, run `training/start-lan.ps1`. See [API and network setup](training/README.md#live-state-rest-api) for details.
 
 ## Troubleshooting
 
-- **Setup fails while app is running:** stop the launcher first, then retry. Do not run multiple copies.
-- **Missing tool after installation:** reopen Setup.cmd so Windows refreshes PATH.
-- **No camera:** check USB and Windows camera privacy permissions; close other camera apps.
-- **Port in use:** close the previous launcher. Start refuses to kill unrelated applications.
-- **Service fails:** inspect `.runtime/logs/video.log`, `control.log`, `inference.log`, and `web.log`.
-- **Check installation:** `.runtime\python\Scripts\python.exe tools\doctor.py` loads both models and executes CPU inference without opening the camera.
+- **No camera:** close other camera apps and check USB and camera permissions.
+- **Setup fails or a port is busy:** stop the existing launcher and retry. Reopen Setup after installing missing tools.
+- **View changed or unknown slots:** check camera placement and calibration.
+- **Service fails:** check `.runtime/logs/`.
 
-Dependency and model licensing notes are in [THIRD_PARTY.md](THIRD_PARTY.md).
+[Training and validation](training/README.md) · [Dependency and model licenses](THIRD_PARTY.md)
