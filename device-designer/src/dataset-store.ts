@@ -2,7 +2,7 @@ import type { GenerationPlan } from './generation-plan';
 import type { ImageProcessing } from './image-processing';
 import type { CameraRange, DatasetAsset, DatasetFrame } from './dataset';
 import type { SavedWorkspace } from './workspace-file';
-export type DatasetRun = { generationStats?: { images: number; seconds: number; completedAt: string }; generationMode?: 'bulk' | 'directed'; generationPlans?: { revision: number; plan: GenerationPlan; feedback: string[]; atIndex: number }[]; processing?: ImageProcessing; cameraRange?: CameraRange; id: string; signature: string; context: SavedWorkspace; assets: DatasetAsset[]; sourceAssets?: DatasetAsset[]; emptyClass: string; target: number; split: 'train' | 'validation' | 'test'; feedback: string[]; createdAt: string };
+export type DatasetRun = { renderer?: 'browser' | 'isaac'; generationStats?: { images: number; seconds: number; completedAt: string }; generationMode?: 'bulk' | 'directed'; generationPlans?: { revision: number; plan: GenerationPlan; feedback: string[]; atIndex: number }[]; processing?: ImageProcessing; cameraRange?: CameraRange; id: string; signature: string; context: SavedWorkspace; assets: DatasetAsset[]; sourceAssets?: DatasetAsset[]; emptyClass: string; target: number; split: 'train' | 'validation' | 'test'; feedback: string[]; createdAt: string };
 function database(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open('lab-sentry-datasets', 1);

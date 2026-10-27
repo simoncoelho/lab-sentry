@@ -1,3 +1,4 @@
+import { isaacSnapshot, renderIsaac } from './isaac-renderer';
 import { nearestHitQuery } from './nearest-hit';
 import * as THREE from "three";
 import { deckSlots } from "./classifier";
@@ -87,6 +88,18 @@ export class InstrumentScene {
   private disposed = false;
   private datasetCapture = false;
   private frame = 0;
+  private gantryDemoStart: number | undefined;
+
+  setGantryDemo(enabled: boolean) {
+    if (enabled && this.gantryDemoStart === undefined) this.gantryDemoStart = performance.now();
+    if (!enabled && this.gantryDemoStart !== undefined) {
+      this.gantryDemoStart = undefined;
+      const robot = this.entries.get('flex')?.robot;
+      for (const name of ['carriage_x_joint', 'gantry_y_joint', 'carriage_z_joint']) {
+        robot?.setJointValue(name, this.workspace?.flex.joints[name] ?? 0);
+      }
+    }
+  }
   private selected: InstrumentId = "flex";
   private workspace?: Workspace;
   private isolated = false;
@@ -651,6 +664,35 @@ export class InstrumentScene {
     }
     this.lighting = { exposure: lighting.exposure, tint: [...lighting.tint] };
   }
+  createSimulationDeck() {
+    const flex = this.entries.get('flex')?.robot;
+    if (!flex) throw new Error('Wait for the Flex model to load.');
+    const objects = new Map<string, THREE.Group>();
+    return {
+      place: (slot: string, template: THREE.Group | null) => {
+        const link = flex.links[`slot_${slot.toLowerCase()}`];
+        if (!link || slot === 'A3') throw new Error('That slot is unavailable.');
+        objects.get(slot)?.removeFromParent(); objects.delete(slot);
+        if (template) {
+          const object = template.clone(true);
+          object.position.set(0, 0, .003);
+          link.add(object); objects.set(slot, object);
+        }
+      },
+      dispose: () => { objects.forEach(object => object.removeFromParent()); objects.clear(); },
+    };
+  }
+  captureSimulatedCamera() {
+    if (!this.expected || !this.workspace?.tiny2.present || !this.entries.get('tiny2')?.robot)
+      throw new Error('Add and position the simulated camera in Workspace first.');
+    const view = this.expected, ratio = view.renderer.getPixelRatio();
+    view.renderer.setPixelRatio(1);
+    try {
+      this.renderExpectedView([1280, 720]);
+      return { image: view.renderer.domElement.toDataURL('image/jpeg', .92).split(',')[1],
+        cameraMatrix: view.camera.matrixWorld.toArray(), horizontalFov: view.horizontalFov };
+    } finally { view.renderer.setPixelRatio(ratio); }
+  }
   captureAlignment() {
     this.renderExpectedView();
     const view = this.expected, tiny = this.entries.get("tiny2"), flex = this.entries.get("flex");
@@ -714,7 +756,7 @@ export class InstrumentScene {
     renderer?.setPixelRatio(1);
     return () => { this.datasetCapture = false; if (renderer && ratio) renderer.setPixelRatio(ratio); };
   }
-  async captureDataset(recipe: Recipe, assets: DatasetAsset[], templates: Map<string, THREE.Group>, slots: string[], emptyClass: string, onTiming?: (phase: string, ms: number) => void) {
+  async captureDataset(recipe: Recipe, assets: DatasetAsset[], templates: Map<string, THREE.Group>, slots: string[], emptyClass: string, onTiming?: (phase: string, ms: number) => void, backend: 'browser' | 'isaac' = 'browser') {
     let measuredAt = performance.now();
     const measure = (phase: string) => { const now = performance.now(); onTiming?.(phase, now - measuredAt); measuredAt = now; };
     const flex = this.entries.get('flex')?.robot;
@@ -749,7 +791,9 @@ export class InstrumentScene {
       measure('placement');
       let detections: Detection[] = [];
       let wasteRecognized = false;
+      let snapshot: ReturnType<typeof isaacSnapshot> | undefined;
       this.renderExpectedView([1280, 720], () => {
+        if (backend === 'isaac') snapshot = isaacSnapshot(this.scene, this.expected!.camera, this.lighting.exposure);
         const masks = captureObjectMasks(this.expected!.renderer, this.scene, this.expected!.camera, [...placed, flex.links.waste_bin]);
         const waste = masks.at(-1)!; wasteRecognized = waste.pixels >= 64 && !waste.review;
         detections = masks.slice(0, placed.length).map((mask, i) => ({ ...mask, slot: recipe.placements[i].slot, assetId: recipe.placements[i].assetId, classId: assets.find(a => a.id === recipe.placements[i].assetId)!.classId }));
@@ -795,7 +839,7 @@ export class InstrumentScene {
         return { slot: name, classId: asset?.classId || emptyClass || null, assetId: asset?.id || null, polygon: corners.map(p => [(p.x + 1) * 640, (1 - p.y) * 360]), visibility: visible / 9, review: !fullyInFrame || visible < 7 || !(asset?.classId || emptyClass) };
       });
       measure('labels');
-      const image = await new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Could not encode the rendered image.')), 'image/png'));
+      const image = snapshot ? await renderIsaac(snapshot) : await new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Could not encode the rendered image.')), 'image/png'));
       measure('encode');
       return { image, annotations: annotations.filter(a => slots.includes(a.slot)), slotStates, slotStateVersion: 1 as const, detections, cameraMatrix: view.camera.matrixWorld.toArray() };
     } finally {
@@ -915,6 +959,22 @@ export class InstrumentScene {
     if (this.disposed) return;
     this.frame = requestAnimationFrame(this.animate);
     if (this.datasetCapture) return;
+    if (this.gantryDemoStart !== undefined) {
+      const entry = this.entries.get('flex');
+      if (entry?.group.visible && entry.robot) {
+        // Raise before traversing, then dip and dwell at each simulated station.
+        const stations = [[-0.19, -0.05], [0.02, -0.05], [0.18, 0.15], [-0.19, 0.15]];
+        const time = (performance.now() - this.gantryDemoStart) / 1000;
+        const step = Math.floor(time / 5), phase = time % 5;
+        const from = stations[step % stations.length], to = stations[(step + 1) % stations.length];
+        const ease = (v: number) => { const t = Math.max(0, Math.min(1, v)); return t * t * (3 - 2 * t); };
+        const travel = ease((phase - 1) / 2);
+        const z = phase < 1 ? 0.13 * (1 - ease(phase)) : phase < 3 ? 0 : 0.13 * ease((phase - 3) / 0.8);
+        entry.robot.setJointValue('carriage_x_joint', from[0] + (to[0] - from[0]) * travel);
+        entry.robot.setJointValue('gantry_y_joint', from[1] + (to[1] - from[1]) * travel);
+        entry.robot.setJointValue('carriage_z_joint', z);
+      }
+    }
     if (this.goal) {
       this.camera.position.lerp(this.goal.position, 0.14);
       this.controls.target.lerp(this.goal.target, 0.14);

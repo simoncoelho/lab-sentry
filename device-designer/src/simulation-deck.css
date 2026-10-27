@@ -1,0 +1,62 @@
+.simulation-deck { padding: 14px; border-bottom: 1px solid #303846; }
+.simulation-deck header, .simulation-deck footer { display: flex; justify-content: space-between; gap: 8px; }
+.simulation-deck header { margin-bottom: 12px; }
+.simulation-deck header span, .simulation-deck p { color: #9ca8b9; font-size: 11px; }
+.simulation-deck-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+.simulation-deck-grid button { min-width: 0; min-height: 48px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 7px; }
+.simulation-deck-grid button span { font-size: 10px; }
+.simulation-deck-grid button[aria-pressed=true] { border-color: #a7b7d0; background: #354155; }
+.simulation-deck-tools { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 12px; }
+.simulation-deck-tools button, .simulation-deck footer button { font-size: 11px; padding: 6px 8px; }
+.simulation-autoplay { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.simulation-autoplay button, .simulation-autoplay select { font-size: 11px; padding: 6px; }
+.simulation-autoplay select { background: #1b2330; color: #edf2f8; border: 1px solid #3b4658; border-radius: 6px; }
+.simulation-autoplay button[aria-pressed=true] { background: #354155; border-color: #a7b7d0; }
+.detector-controls { display: flex; align-items: end; gap: 12px; padding: 12px; }
+.detector-controls label { display: flex; flex-direction: column; gap: 6px; color: #aab4c4; font-size: 11px; }
+.detector-controls label:nth-child(2) { flex: 1; min-width: 0; }
+.detector-controls select { width: 100%; min-width: 0; padding: 9px 28px 9px 10px; color: #edf2f8; background: #1b2330; border: 1px solid #3b4658; border-radius: 6px; cursor: pointer; }
+.detector-controls select:focus-visible { outline: 2px solid #a7b7d0; outline-offset: 2px; }
+.detector-controls select:disabled { cursor: wait; opacity: .5; }
+.detector-switch-hint { margin: 0 12px 10px; color: #9ca8b9; font-size: 10px; }
+@media (max-width: 650px) { .detector-controls { flex-wrap: wrap; } .detector-controls label:nth-child(2) { flex-basis: 60%; } }
+
+/* Detection workbench: image and predictions together; scene editing beside them. */
+.training-panel .training-toolbar { margin-bottom: 14px; }
+.training-panel .training-toolbar h1 { font-size: 22px; margin: 0; }
+.training-panel .training-toolbar .eyebrow { display: none; }
+.training-panel .detection-layout { grid-template-columns: minmax(0,1fr) 280px; gap: 16px; }
+.detection-main { min-width: 0; display: grid; gap: 12px; }
+.training-panel .detection-camera { background: #0d121a; }
+.training-panel .detection-camera-toolbar { padding: 12px 14px 0; }
+.training-panel .detector-controls { padding: 12px 14px; gap: 10px; }
+.training-panel .detector-controls label:first-child { width: 126px; }
+.training-panel .detector-controls label:nth-child(2) { max-width: 460px; }
+.training-panel .detector-controls > button { margin-left: auto; min-width: 90px; height: 36px; }
+.training-panel.is-detecting .detection-main .detection-camera img { max-height: calc(100vh - 530px); min-height: 180px; }
+.simulation-feed-caption { display: flex; justify-content: space-between; padding: 8px 14px; font-size: 10px; color: #8d9bb0; border-top: 1px solid #26303d; }
+.detection-results { padding: 12px; background: #151c26; border: 1px solid #2b3544; border-radius: 9px; }
+.detection-results header { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 12px; }
+.detection-results header span, .detection-results > p { font-size: 10px; color: #94a1b3; }
+.detection-results > p { margin: 8px 0 0; }
+.detection-results .detection-slot-grid { grid-template-columns: repeat(6, minmax(0,1fr)); }
+.training-panel .detection-deck { padding: 0; background: #151c26; }
+.training-panel .simulation-deck { border: 0; padding: 14px; }
+.training-panel .simulation-deck header { margin-bottom: 14px; }
+.training-panel .simulation-deck-grid button { min-height: 55px; align-items: flex-start; justify-content: center; padding: 8px; }
+.training-panel .simulation-deck-grid button:disabled { opacity: 1; color: #a9b5c6; background: #19212d; border-color: #293341; }
+.training-panel .simulation-deck-grid button[aria-label="A3: Fixed waste bin"] { opacity: .4; }
+.training-panel .simulation-autoplay { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.training-panel .simulation-autoplay button { padding: 8px; }
+.simulation-autoplay > button:last-child { grid-column: 1 / -1; }
+.training-panel .simulation-deck-tools { display: grid; grid-template-columns: repeat(2,1fr); }
+.training-panel .simulation-deck footer button { padding: 7px; }
+.training-panel .detection-camera-controls { padding: 14px; }
+@media (max-width: 900px) {
+  .training-panel .detection-layout { grid-template-columns: minmax(0,1fr) 240px; }
+  .detection-results .detection-slot-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}
+@media (max-width: 700px) {
+  .training-panel .detection-layout { grid-template-columns: 1fr; }
+  .training-panel.is-detecting .detection-main .detection-camera img { max-height: none; min-height: 0; }
+}

@@ -188,6 +188,7 @@ export default function App() {
   const [libraryOpen, setLibraryOpen] = useState(!restored.saved);
   const [openedRun, setOpenedRun] = useState<string>();
   const [workspaceRevision, setWorkspaceRevision] = useState(0);
+  const [gantryDemo, setGantryDemo] = useState(true);
   const [saved, setSaved] = useState<SavedWorkspace | null>(restored.saved);
   const [workspaceName, setWorkspaceName] = useState(restored.saved?.name || "My lab workspace");
   const [cameraPtz, setCameraPtz] = useState<SavedWorkspace['view']['cameraPtz']>(restored.saved?.view.cameraPtz);
@@ -279,6 +280,9 @@ export default function App() {
   useEffect(() => {
     scene.current?.update(workspace, selected, isolated);
   }, [workspace, selected, isolated]);
+  useEffect(() => {
+    scene.current?.setGantryDemo(gantryDemo && phase === 'setup' && workspace.flex.present && workspace.flex.visible);
+  }, [gantryDemo, phase, workspace.flex.present, workspace.flex.visible]);
   useEffect(() => {
     scene.current?.setPlacementEnabled(phase === "setup" && tab === "placement", placementMode);
     if (tab === "placement") setMounting(false);
@@ -496,7 +500,7 @@ export default function App() {
       {phase === "serve" && <ServePanel scene={scene.current} onDetector={() => setPhase(classifier ? "training" : "setup")}/>}
       {phase === "classifier" && classifier && <ClassifierDesigner design={classifier} onChange={setClassifier} onSave={() => saveSetup()} onExport={exportClassifier} clean={clean} workspaceName={workspaceName}/>}
       {(phase === 'dataset' || phase === 'training') && classifier && <DatasetGenerator key={workspaceRevision} initialRunId={openedRun} onSideView={next => { openSavedWorkspace(next); setPhase('dataset'); }} onOpenRun={run => openSavedWorkspace(run.context, run.id)} onProgress={setDatasetProgress} scene={scene.current} context={snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting, ...(cameraPtz ? { cameraPtz } : {}) }, classifier)}/>}
-      {phase === 'training' && classifier && <TrainingPanel context={snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting, ...(cameraPtz ? { cameraPtz } : {}) }, classifier)}/>}
+      {phase === 'training' && classifier && <TrainingPanel scene={scene.current} context={snapshot(workspaceName, workspace, { acrylicVisible, grid, horizontalFov, lighting, ...(cameraPtz ? { cameraPtz } : {}) }, classifier)}/>}
       {phase === "setup" ? <aside className="library">
         <div className="panel-heading">
           <span>Devices</span>
@@ -647,6 +651,11 @@ export default function App() {
             </strong>
           </div>
           <div className="view-actions">
+            {phase === 'setup' && workspace.flex.present && <button
+              aria-pressed={gantryDemo}
+              title="Simulated gantry motion"
+              onClick={() => setGantryDemo(!gantryDemo)}
+            ><Move3D size={14} /><span>{gantryDemo ? 'Stop demo' : 'Animate Flex'}</span></button>}
             <button
               title="Fit all visible instruments (A)"
               aria-label="Fit all instruments"

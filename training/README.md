@@ -85,3 +85,13 @@ stream.addEventListener('state', event => {
 ```
 
 The Serve UI now uses this stream instead of polling. Disconnect or a five-second stream silence clears the displayed state. The LAN firewall requirement is the same as REST; no additional port is needed. Browser applications on other origins need their own same-origin proxy (cross-origin access is not enabled).
+
+## Simulated camera
+
+In **Train & run**, select **Simulation** as the camera source and run a saved model. The browser streams the current workspace from the modeled camera at up to 4 FPS; the Python service runs both YOLO detectors on those pixels. No physical camera is connected or moved. Keep Train & run open to supply frames; missing frames become stale after five seconds.
+
+Position the Flex and camera in Workspace first. Slot assignment requires the simulated camera pose and field of view to match the selected model's calibration. A mismatch leaves slots unknown while object detection continues. The current workspace is rendered as-is; this is not a saved-dataset replay or a substitute for real-camera validation.
+
+REST and SSE responses include an additive `source` field (`camera` or `simulation`) so clients can distinguish test observations. Existing slot fields and routes are unchanged.
+
+Simulation also offers Run scenarios: repeatable empty, sparse, mixed, and crowded layouts with simulated gantry motion. Choose 5, 10, or 20 seconds per layout, use Next layout to advance, or pause to edit manually. Playback pauses when detection stops and never sends hardware commands.

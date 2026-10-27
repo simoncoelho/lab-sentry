@@ -16,6 +16,6 @@ def deck_state(snapshot, now=None):
         slots.append({'slot': position, 'state': item.get('state', 'unknown'), 'labware': item.get('label'),
                       'confidence': item.get('confidence', 0), 'reason': item.get('reason', status if not fresh else 'no confident observation')})
     return {'schemaVersion': 1, 'instrument': 'opentrons-flex', 'modelId': snapshot.get('model'),
-            'status': status, 'fresh': fresh, 'observedAt': datetime.fromtimestamp(timestamp, timezone.utc).isoformat() if timestamp else None,
+            'source': snapshot.get('source', 'camera'), 'status': status, 'fresh': fresh, 'observedAt': datetime.fromtimestamp(timestamp, timezone.utc).isoformat() if timestamp else None,
             'ageMs': round(age*1000) if age is not None else None,
             'error': snapshot.get('error'), 'slots': slots}

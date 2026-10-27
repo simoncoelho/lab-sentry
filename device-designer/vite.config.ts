@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 export default defineConfig({
   base: "./",
   server: { watch: { ignored: ['**/training/**', '**/.venv/**', '**/runs/**'] }, proxy: {
+    "/isaac-api": { target: "http://127.0.0.1:5103", rewrite: path => path.replace(/^\/isaac-api/, ""), timeout: 180000 },
     "/training-api": { target: "http://127.0.0.1:5102", rewrite: path => path.replace(/^\/training-api/, "") },
     "/camera-api": { target: "http://127.0.0.1:5101", rewrite: path => path.replace(/^\/camera-api/, "") },
     "/video-api": { target: "http://127.0.0.1:5100", rewrite: path => path.replace(/^\/video-api/, "") },

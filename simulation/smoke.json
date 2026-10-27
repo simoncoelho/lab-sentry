@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "width": 1280,
+  "height": 720,
+  "upAxis": "Y",
+  "metersPerUnit": 1,
+  "exposure": 1,
+  "camera": {
+    "matrix": [
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    "verticalFov": 45,
+    "near": 0.01,
+    "far": 100
+  },
+  "lights": [
+    {
+      "kind": "HemisphereLight",
+      "color": [
+        1,
+        1,
+        1
+      ],
+      "intensity": 1
+    }
+  ],
+  "meshes": [
+    {
+      "name": "test",
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "points": [
+        [
+          -1,
+          -0.5,
+          -3
+        ],
+        [
+          1,
+          -0.5,
+          -3
+        ],
+        [
+          0,
+          0.5,
+          -3
+        ]
+      ],
+      "indices": [
+        0,
+        1,
+        2
+      ],
+      "material": {
+        "color": [
+          0.1,
+          0.4,
+          0.7
+        ],
+        "roughness": 0.4,
+        "metalness": 0,
+        "opacity": 1,
+        "ior": 1.5,
+        "doubleSided": true
+      }
+    }
+  ]
+}

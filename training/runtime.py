@@ -1,4 +1,6 @@
 """Conservative, fixed-view deck observations. Missing evidence stays unknown."""
+from contextlib import nullcontext
+from simulated_camera import SimulatedCamera, matches_calibration
 import json
 import threading
 import time
@@ -87,6 +89,7 @@ def alignment_quality(h, src, dst, mask):
 class Runtime:
     def __init__(self):
         self.lock=threading.Lock(); self.stop_event=threading.Event(); self.thread=None
+        self.simulated = SimulatedCamera(); self.source = "camera"
         self.state={'running':False,'slots':unknown('not running')}; self.jpeg=None; self.raw_jpeg=None
 
     def snapshot(self):
@@ -100,10 +103,13 @@ class Runtime:
         if self.thread: self.thread.join(timeout=15)
         with self.lock: self.state.update(running=False,slots=unknown('not running'))
 
-    def start(self, status, reference, restore_ptz=True):
+    def start(self, status, reference, restore_ptz=True, source="camera"):
+        if source not in ("camera", "simulation"): raise ValueError("Unknown camera source")
         if self.thread and self.thread.is_alive(): raise ValueError('Runtime already running')
         self.stop_event.clear()
-        with self.lock: self.state={'running':True,'timestamp':time.time(),'slots':unknown('warming up'),'model':status['id']}
+        self.source = source; self.simulated = SimulatedCamera()
+        self.jpeg = None; self.raw_jpeg = None
+        with self.lock: self.state={'running':True,'timestamp':time.time(),'slots':unknown('warming up'),'model':status['id'],'source':self.source}
         self.thread=threading.Thread(target=self.loop,args=(status,reference,restore_ptz),daemon=True);self.thread.start()
 
     def loop(self, status, reference, restore_ptz=True):
@@ -126,24 +132,27 @@ class Runtime:
             ref=cv2.imread(str(reference),0) if reference else None
             sift=cv2.SIFT_create(nfeatures=1500)
             refkp,refdesc=sift.detectAndCompute(ref,None) if ref is not None else ([],None)
-            connection=requests.post('http://127.0.0.1:5101/connect',json={},timeout=8)
-            if not connection.ok:
-                try:message=connection.json().get('error','Connect the OBSBOT by USB, then try again.')
-                except ValueError:message='Camera controls unavailable. Connect the OBSBOT by USB, then try again.'
-                raise RuntimeError(message)
-            with requests.get('http://127.0.0.1:5100/obsbot/video.mjpeg?orientation=none',stream=True,timeout=(5,12)) as stream:
-                stream.raise_for_status()
-                ptz=manifest['runs'][0]['context']['view'].get('cameraPtz')
-                if not ptz: raise ValueError('Dataset has no saved hardware PTZ')
-                if restore_ptz:
-                    requests.post('http://127.0.0.1:5101/target',json={k:ptz[k] for k in ['pan','tilt','zoom']},timeout=8).raise_for_status()
+            simulated = self.source == 'simulation'
+            if not simulated:
+                connection=requests.post('http://127.0.0.1:5101/connect',json={},timeout=8)
+                if not connection.ok: raise RuntimeError('Connect the OBSBOT by USB, then try again.')
+            connection = nullcontext(None) if simulated else requests.get('http://127.0.0.1:5100/obsbot/video.mjpeg?orientation=none',stream=True,timeout=(5,12))
+            with connection as stream:
+                if not simulated:
+                    stream.raise_for_status()
+                    ptz=manifest['runs'][0]['context']['view'].get('cameraPtz')
+                    if not ptz: raise ValueError('Dataset has no saved hardware PTZ')
+                    if restore_ptz:
+                        requests.post('http://127.0.0.1:5101/target',json={k:ptz[k] for k in ['pan','tilt','zoom']},timeout=8).raise_for_status()
                 from camera_frames import latest_frames
+                frames = self.simulated.frames(self.stop_event) if simulated else latest_frames(stream,self.stop_event)
                 last=0;started=time.time();alignment={'ok':False,'reason':'settling camera'};previous_gray=None;last_motion={}
-                for encoded,captured_at in latest_frames(stream,self.stop_event):
+                for packet in frames:
+                    encoded,captured_at = packet[:2]
                     if time.time()-last<.25:continue
                     last=time.time();image=cv2.imdecode(np.frombuffer(encoded,np.uint8),cv2.IMREAD_COLOR)
                     if image is None:continue
-                    if last-started<5:continue
+                    if not simulated and last-started<5:continue
                     gray=cv2.resize(cv2.cvtColor(image,cv2.COLOR_BGR2GRAY),(640,360))
                     kp,desc=sift.detectAndCompute(gray,None)
                     alignment={'ok':False,'reason':'reference landmarks unavailable'}; view_transform=None
@@ -155,6 +164,10 @@ class Runtime:
                             if h is not None and mask is not None and mask.sum()>=12:
                                 alignment=alignment_quality(h,src,dst,mask)
                                 if alignment['ok']:view_transform=h
+                    if simulated:
+                        matched = matches_calibration(packet[2], packet[3], manifest)
+                        alignment = {'ok':matched, 'reason':'Simulated camera aligned' if matched else 'Simulation camera differs from model calibration'}
+                        view_transform = np.eye(3) if matched else None
                     # Correct supported PTZ drift before using fixed-view geometry.
                     inference_image=cv2.warpPerspective(cv2.resize(image,(640,360)),np.linalg.inv(view_transform),(640,360)) if view_transform is not None else image
                     observed_gray=cv2.GaussianBlur(cv2.cvtColor(cv2.resize(inference_image,(640,360)),cv2.COLOR_BGR2GRAY),(5,5),0)
@@ -204,7 +217,7 @@ class Runtime:
                     with self.lock:
                         self.raw_jpeg=encoded
                         self.jpeg=jpeg.tobytes() if ok else None
-                        self.state={'running':True,'timestamp':captured_at,'model':status['id'],'alignment':alignment,'slots':slots,'objects':detections['labware'],'warning':'Synthetic-trained baseline. Real-world validation pending.'}
+                        self.state={'running':True,'timestamp':captured_at,'model':status['id'],'alignment':alignment,'slots':slots,'objects':detections['labware'],'source':self.source,'warning':'Synthetic-trained baseline. Real-world validation pending.'}
         except Exception as error:
             with self.lock:self.state.update(running=False,error=str(error),slots=unknown(str(error)))
         finally:

@@ -38,6 +38,11 @@ Start.cmd defaults to CPU inference, including on NVIDIA machines. To use an exi
 
 ## Files and model handoff
 
+Experimental RTX dataset rendering is available through the optional
+[Isaac Sim backend](simulation/README.md). Run `Start-Isaac.cmd`, then use
+**Generate dataset > Generation settings > Preview Isaac** to compare a scene.
+Isaac is not required for the app or CPU detection.
+
 - `bundled/deck/`: both weights, metrics, camera reference, calibration manifest, and importable `workspace.json`. Paths are relative so moving the checkout works.
 - `training/runs/`: locally trained models; not committed. **Model & validation → Download model** exports a portable ZIP. Extract a trusted export into `training/runs/<model-id>/` and restart the app. Import its `workspace.json` through Open workspace. Only load trusted model files; PyTorch checkpoints are executable formats.
 - `.runtime/`: private Python environment, camera binaries and logs. Recreated by Setup; not committed.

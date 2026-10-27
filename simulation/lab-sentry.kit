@@ -1,0 +1,25 @@
+[package]
+title = "Lab Sentry Renderer"
+version = "0.1.0"
+
+[dependencies]
+"omni.usd" = {}
+"omni.kit.renderer.core" = {}
+"omni.kit.viewport.window" = {}
+"omni.replicator.core" = {}
+"omni.kit.primitive.mesh" = {}
+"omni.hydra.rtx" = {}
+"omni.hydra.usdrt_delegate" = {}
+
+[settings]
+rtx-transient.dlssg.enabled = false
+omni.replicator.asyncRendering = false
+exts."omni.kit.renderer.core".present.enabled = false
+
+[settings.app]
+name = "Lab-Sentry-Renderer"
+settings.persistent = false
+vulkan = true
+asyncRendering = false
+asyncRenderingLowLatency = false
+settings.fabricDefaultStageFrameHistoryCount = 3

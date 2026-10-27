@@ -1,3 +1,5 @@
+import { SimulationDeck } from './SimulationDeck';
+import type { InstrumentScene } from './scene';
 import { CameraHardwareControls } from './CameraHardwareControls';
 import { useEffect, useState } from 'react';
 
@@ -19,7 +21,7 @@ type Run = { id: string; name?: string; state: string; task?: string; epoch: num
 
 type Slot = { slot: string; state: string; label?: string; confidence: number; reason: string };
 
-type Status = { capabilities?: { training: boolean; device: string }; dataset: Report; training: boolean; runs: Run[]; runtime: { model?: string; running: boolean; error?: string; stale?: boolean; timestamp?: number; slots: Slot[]; alignment?: { ok: boolean; reason: string }; warning?: string } };
+type Status = { capabilities?: { training: boolean; device: string }; dataset: Report; training: boolean; runs: Run[]; runtime: { source?: 'camera' | 'simulation'; model?: string; running: boolean; error?: string; stale?: boolean; timestamp?: number; slots: Slot[]; alignment?: { ok: boolean; reason: string }; warning?: string } };
 
 const key = (context: SavedWorkspace) => JSON.stringify({ workspace: context.workspace, view: context.view, classifier: context.classifier });
 
@@ -27,7 +29,8 @@ const percent = (n?: number) => n == null ? '—' : `${(100 * n).toFixed(1)}%`;
 
 
 
-export function TrainingPanel({ context }: { context: SavedWorkspace }) {
+export function TrainingPanel({ context, scene }: { context: SavedWorkspace; scene: InstrumentScene | null }) {
+  const [source, setSource] = useState<'camera' | 'simulation'>('camera');
 
   const [status, setStatus] = useState<Status | null>(null);
 
@@ -52,6 +55,33 @@ export function TrainingPanel({ context }: { context: SavedWorkspace }) {
 
   useEffect(() => { void refresh(); const timer = setInterval(() => void refresh(), status?.runtime.running ? 500 : 2000); return () => clearInterval(timer); }, [status?.runtime.running]);
 
+  const simulating = !busy && status?.runtime.running && status.runtime.source === 'simulation';
+  useEffect(() => {
+    if (!simulating || !scene) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const controller = new AbortController();
+    async function sendFrame() {
+      try {
+        const frame = scene!.captureSimulatedCamera();
+        const response = await fetch('/training-api/runtime/simulation/frame', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(frame), signal: controller.signal,
+        });
+        if (!response.ok) throw new Error((await response.json()).detail || 'Simulation stream failed');
+        if (!cancelled) timer = setTimeout(sendFrame, 250);
+      } catch (e) {
+        if (!cancelled) {
+          setError((e as Error).message);
+          await fetch('/training-api/runtime/stop', { method: 'POST' });
+          void refresh();
+        }
+      }
+    }
+    void sendFrame();
+    return () => { cancelled = true; clearTimeout(timer); controller.abort(); };
+  }, [simulating, scene]);
+
   async function action(path: string, body: unknown = {}) {
 
     setBusy(true); setError('');
@@ -60,6 +90,20 @@ export function TrainingPanel({ context }: { context: SavedWorkspace }) {
 
     catch (e) { setError((e as Error).message); } finally { setBusy(false); }
 
+  }
+
+  async function changeDetector(nextSource: 'camera' | 'simulation', nextModel: string) {
+    setBusy(true); setError('');
+    try {
+      if (status?.runtime.running) {
+        const response = await fetch('/training-api/runtime/stop', { method: 'POST' });
+        if (!response.ok) throw new Error('Could not stop detection. Try again.');
+      }
+      setSource(nextSource); setModel(nextModel);
+      setStatus(current => current ? { ...current, runtime: { ...current.runtime, running: false } } : current);
+      await refresh();
+    } catch (e) { setError((e as Error).message); }
+    finally { setBusy(false); }
   }
 
   async function useDataset() {
@@ -102,14 +146,14 @@ export function TrainingPanel({ context }: { context: SavedWorkspace }) {
 
   return <section className={`training-panel${status?.runtime.running ? ' is-detecting' : ''}`} aria-label="Training and detection">
 
-    <div className="training-toolbar"><div><span className="eyebrow">05 / TRAIN & RUN</span><h1>Deck detection</h1></div>
+    <div className="training-toolbar"><div><span className="eyebrow">05 / TRAIN & RUN</span><h1>Test model</h1></div>
 
       {canTrain && <div className="training-actions"><button disabled={active} onClick={useDataset}><Database size={15}/> Use generated dataset</button>
 
         <label>Epochs <input aria-label="Training epochs" type="number" min={10} max={300} value={epochs} onChange={e => setEpochs(Number(e.target.value))}/></label>
 
         <button className="primary-action" title={status?.capabilities?.training === false ? 'Training needs an NVIDIA GPU. Run a saved model below on CPU.' : undefined} disabled={active || !report?.images || report.inferenceOnly || status?.capabilities?.training === false} onClick={() => action('train', { epochs, realReference, extraNoise })}><Cpu size={15}/> Train YOLO</button></div>}</div>
-    {status?.capabilities?.device === 'cpu' && <p className="training-footnote">CPU inference ready · Select a saved model and Run detection.</p>}
+
 
     {canTrain && <><label className="training-reference"><input type="checkbox" checked={realReference} disabled={active} onChange={e => setRealReference(e.target.checked)}/> Include reviewed camera reference <span>One layout · adaptation only</span></label>
 
@@ -133,19 +177,25 @@ export function TrainingPanel({ context }: { context: SavedWorkspace }) {
     </>}
     <div className="detection-layout">
 
-      <div className="detection-camera"><div className="detection-camera-toolbar"><strong>Live camera</strong><span>{status?.runtime.running ? status.runtime.stale ? 'Waiting for frame' : status.runtime.alignment?.ok ? 'View aligned' : status.runtime.alignment?.reason === 'camera view changed' ? 'View changed · slot mapping unavailable' : status.runtime.alignment?.reason ?? 'Connecting' : status?.training ? 'Paused during training' : 'Stopped'}</span></div>
+      <div className="detection-main"><div className="detection-camera"><div className="detection-camera-toolbar"><strong>{(status?.runtime.running ? status.runtime.source : source) === 'simulation' ? 'Simulated camera' : 'Live camera'}</strong><span>{status?.runtime.running ? status.runtime.stale ? 'Waiting for frame' : status.runtime.alignment?.ok ? 'View aligned' : status.runtime.alignment?.reason === 'camera view changed' ? 'View changed · slot mapping unavailable' : status.runtime.alignment?.reason ?? 'Connecting' : status?.training ? 'Paused during training' : 'Stopped'}</span></div>
 
-        <div className="detection-camera-toolbar"><select aria-label="Detection model" value={chosen?.id ?? ''} disabled={active} onChange={e => setModel(e.target.value)}>{!complete.length && <option value="">No trained model</option>}{complete.map(run => <option key={run.id} value={run.id}>{run.name ?? run.id}</option>)}</select>
+        <div className="detector-controls">
+          <label title="Changing source pauses detection">Source<select aria-label="Camera source" value={status?.runtime.running ? status.runtime.source ?? 'camera' : source} disabled={busy || status?.training} onChange={e => void changeDetector(e.target.value as 'camera' | 'simulation', chosen?.id ?? model)}><option value="camera">OBSBOT</option><option value="simulation">Simulation</option></select></label>
+          <label title="Changing model pauses detection">Model<select aria-label="Detection model" value={chosen?.id ?? ''} disabled={busy || status?.training} onChange={e => void changeDetector(status?.runtime.running ? status.runtime.source ?? 'camera' : source, e.target.value)}>{!complete.length && <option value="">No trained model</option>}{complete.map(run => <option key={run.id} value={run.id}>{run.name ?? run.id}</option>)}</select></label>
+          {status?.runtime.running ? <button onClick={() => { setSource(status.runtime.source ?? 'camera'); setModel(chosen?.id ?? model); void action('runtime/stop'); }} disabled={busy}><Square size={14}/> Stop</button> : <button className="primary-action" disabled={active || !chosen} onClick={() => action('runtime/start', { id: chosen?.id, source })}><Play size={14}/> Run detection</button>}
+        </div>
 
-          {status?.runtime.running ? <button onClick={() => action('runtime/stop')} disabled={busy}><Square size={14}/> Stop</button> : <button className="primary-action" disabled={active || !chosen} onClick={() => action('runtime/start', { id: chosen?.id })}><Play size={14}/> Run detection</button>}</div>
 
-        {status?.runtime.running && status.runtime.timestamp && !status.runtime.stale ? <img src={`/training-api/runtime/frame.jpg?t=${status.runtime.timestamp}`} alt="Live YOLO labware detections"/> : <div className="detection-placeholder"><Cpu size={30}/><span>{status?.runtime.running ? 'Connecting to live camera…' : status?.training ? 'Training on your GPU' : chosen ? 'Connect OBSBOT by USB, then Run detection' : 'Load a saved model to begin'}</span></div>}
+        {status?.runtime.running && status.runtime.timestamp && !status.runtime.stale ? <img src={`/training-api/runtime/frame.jpg?t=${status.runtime.timestamp}`} alt="Live YOLO labware detections"/> : <div className="detection-placeholder"><Cpu size={30}/><span>{status?.runtime.running ? 'Connecting to live camera…' : status?.training ? 'Training on your GPU' : chosen ? source === 'simulation' ? 'Run detection on the simulated camera' : 'Connect OBSBOT by USB, then Run detection' : 'Load a saved model to begin'}</span></div>}
 
+        {(status?.runtime.running ? status.runtime.source : source) === 'simulation' && <div className="simulation-feed-caption"><span>Simulated feed</span><span>YOLO predictions</span></div>}
         {status?.runtime.error && <p role="alert" className="training-error">{status.runtime.error}</p>}
 
       </div>
 
-      <aside className="detection-deck"><section className="detection-camera-controls" aria-label="Live camera controls"><CameraHardwareControls detection preset={context.view.cameraPtz} onReading={() => {}}/></section><header><strong>Deck state</strong><span>12 positions</span></header><div className="detection-slot-grid">{('ABCD'.split('').flatMap(row => [1, 2, 3].map(column => `${row}${column}`))).map(id => { const slot = status?.runtime.slots.find(slot => slot.slot === id); return <div className={`detection-slot state-${slot?.state ?? 'unknown'}`} key={id} title={slot?.reason}><strong>{id}</strong><span>{slot?.label ?? slot?.state ?? 'unknown'}</span>{slot && slot.confidence > 0 && <small>{percent(slot.confidence)}</small>}</div>; })}</div><p title="Labware recognition continues when the view changes, but deck positions require a matching calibration.">Unknown = no reliable slot assignment</p></aside>
+      <section className="detection-results" aria-label="Predicted deck state"><header><strong>Predictions</strong><span>12 slots</span></header><div className="detection-slot-grid">{('ABCD'.split('').flatMap(row => [1, 2, 3].map(column => `${row}${column}`))).map(id => { const slot = status?.runtime.slots.find(slot => slot.slot === id); return <div className={`detection-slot state-${slot?.state ?? 'unknown'}`} key={id} title={slot?.reason}><strong>{id}</strong><span>{slot?.label ?? slot?.state ?? 'unknown'}</span>{slot && slot.confidence > 0 && <small>{percent(slot.confidence)}</small>}</div>; })}</div><p title="Labware recognition continues when the view changes, but deck positions require a matching calibration.">Unknown slots need more evidence</p></section></div>
+
+      <aside className="detection-deck">{(status?.runtime.running ? status.runtime.source : source) === 'simulation' && <SimulationDeck scene={scene} running={!!status?.runtime.running}/>}{(status?.runtime.running ? status.runtime.source : source) !== 'simulation' && <section className="detection-camera-controls" aria-label="Live camera controls"><CameraHardwareControls detection preset={context.view.cameraPtz} onReading={() => {}}/></section>}</aside>
 
     </div>
 

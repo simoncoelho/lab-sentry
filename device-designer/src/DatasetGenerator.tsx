@@ -57,6 +57,9 @@ export function DatasetGenerator({ scene, context, onProgress, initialRunId, onO
   const [emptyClass, setEmptyClass] = useState(design.classes.find(c => /^(empty|empty slot)$/i.test(c.name))?.id ?? '');
 
   const [target, setTarget] = useState(400);
+  const [previewing, setPreviewing] = useState(false);
+  const [preview, setPreview] = useState<DatasetFrame | null>(null);
+  const [renderer, setRenderer] = useState<'browser' | 'isaac'>('browser');
   const [generationMode, setGenerationMode] = useState<'bulk' | 'directed'>('bulk');
 
   const fixedRange = (): CameraRange => { const pan = (context.workspace.tiny2.joints.obsbot_pan_joint ?? 0) * 180 / Math.PI, tilt = (context.workspace.tiny2.joints.obsbot_tilt_joint ?? 0) * 180 / Math.PI; return { pan: [pan, pan], tilt: [tilt, tilt], zoom: [1, 1] }; };
@@ -146,6 +149,7 @@ export function DatasetGenerator({ scene, context, onProgress, initialRunId, onO
 
     if (!alive.current) return;
 
+    setRenderer(next.renderer ?? 'browser');
     if (next.cameraRange) setCameraRange(next.cameraRange);
 
     setGenerationMode(next.generationMode ?? 'bulk');
@@ -229,14 +233,14 @@ export function DatasetGenerator({ scene, context, onProgress, initialRunId, onO
 
     const initialNotes = feedback.trim() ? [...latest.current.notes, feedback.trim()].slice(-20) : latest.current.notes;
     latest.current.notes = initialNotes; setNotes(initialNotes); setFeedback('');
-    setError(''); setRunning(true); active.current = true;
+    setPreview(null); setError(''); setRunning(true); active.current = true;
     sessionStart.current = { time: performance.now(), count: frames.length }; setElapsed(0); setStage('Preparing');
 
     let completed = [...frames];
 
     let session: DatasetRun = run ? { ...run, target, split, cameraRange } : { id: crypto.randomUUID(), signature: runSignature(contextKey(context), assets, emptyClass), context: structuredClone(context), assets, emptyClass, target, split, cameraRange, feedback: notes, createdAt: new Date().toISOString() };
 
-    session = { ...session, generationMode, feedback: initialNotes };
+    session = { ...session, renderer, generationMode, feedback: initialNotes };
     const finishCapture = scene.beginDatasetCapture();
     const templates = new Map<string, THREE.Group>();
 
@@ -244,6 +248,10 @@ export function DatasetGenerator({ scene, context, onProgress, initialRunId, onO
 
     try {
 
+      if (renderer === 'isaac') {
+        const health = await fetch('/isaac-api/health', { signal: AbortSignal.timeout(5000) }).catch(() => null);
+        if (!health?.ok) throw new Error('Start Isaac Sim with Start-Isaac.cmd, then retry.');
+      }
       await saveRun(session); setRun(session); latest.current.run = session;
 
       while (active.current && completed.length < target) {
@@ -324,7 +332,7 @@ export function DatasetGenerator({ scene, context, onProgress, initialRunId, onO
 
           validateRecipe(recipe, mapped, availableSlots(design), cameraRange);
 
-          const rendered = await scene.captureDataset(recipe, mapped, templates, availableSlots(design), settings.emptyClass);
+          const rendered = await scene.captureDataset(recipe, mapped, templates, availableSlots(design), settings.emptyClass, undefined, renderer);
 
           if (!active.current || currentRevision !== revision.current) break;
 
@@ -398,7 +406,22 @@ export function DatasetGenerator({ scene, context, onProgress, initialRunId, onO
   const remainingSeconds = rate > 0 ? Math.ceil((target - frames.length) / rate) : 0;
   const eta = remainingSeconds >= 60 ? `${Math.ceil(remainingSeconds / 60)} min left` : `${remainingSeconds}s left`;
   const reviewCount = useMemo(() => { const ids = detectionClasses(design, emptyClass).map(c => c.id); return frames.filter(f => yoloLabel(f, ids) === null).length; }, [frames, design, emptyClass]);
-  const current = frames.find(f => f.id === selected) ?? frames.at(-1);
+  const current = preview ?? frames.find(f => f.id === selected) ?? frames.at(-1);
+
+  async function previewRenderer(backend: 'browser' | 'isaac' = renderer) {
+    if (!scene) return;
+    setPreviewing(true); setError(''); setStatus('Rendering preview...');
+    const templates = new Map<string, THREE.Group>(), finish = scene.beginDatasetCapture();
+    try {
+      const mapped = assets.filter(a => a.classId && a.classId !== emptyClass);
+      for (const asset of mapped) templates.set(asset.id, await loadDatasetAsset(asset));
+      const recipe: Recipe = current?.recipe ?? { note: 'Renderer preview', exposure: 1, warmth: 0, placements: [], camera: { pan: fixedRange().pan[0], tilt: fixedRange().tilt[0], zoom: 1 } };
+      const rendered = await scene.captureDataset(recipe, mapped, templates, availableSlots(design), emptyClass, undefined, backend);
+      setPreview({ id: crypto.randomUUID(), runId: 'preview', index: current?.index ?? 1, ...rendered, recipe, feedback: [], createdAt: new Date().toISOString() });
+      setStatus(`${backend === 'isaac' ? 'Isaac Sim' : 'Browser'} preview - not added to dataset`);
+    } catch (e) { setError((e as Error).message); setStatus('Preview failed'); }
+    finally { templates.forEach(disposeAsset); finish(); setPreviewing(false); }
+  }
 
   const coverage = cameraCoverage(frames, cameraRange);
 
@@ -406,7 +429,7 @@ export function DatasetGenerator({ scene, context, onProgress, initialRunId, onO
 
   return <main className="dataset-generator" aria-label="Dataset generation" onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); void upload(e.dataTransfer.files); }}>
 
-    <header className="dataset-heading"><div><h1>Generate dataset</h1></div><div><label>Images<input aria-label="Target images" type="number" min={1} max={1000} disabled={running} value={target} onChange={e => setTarget(Number(e.target.value))}/></label><button className="primary-action" disabled={loading || uploading || !scene || (!running && frames.length >= target)} onClick={running ? pause : () => void start()}>{running ? <Pause size={14}/> : <Play size={14}/>} {running ? 'Pause' : frames.length >= target ? 'Complete' : frames.length ? 'Resume' : 'Generate'}</button><button disabled={!frames.length} onClick={() => { setGalleryPage(0); setGalleryOpen(true); }}>Gallery ({frames.length})</button><button disabled={running || !frames.length} onClick={() => void download()}><Download size={14}/>Export YOLO</button><button disabled={running} onClick={() => { setRun(null); setCameraRange(fixedRange()); setFrames([]); setSelected(null); setNotes([]); setFeedback(''); setStatus('New run · previous images remain saved'); setError(''); }}>New run</button></div></header>
+    <header className="dataset-heading"><div><h1>Generate dataset</h1></div><div><label>Images<input aria-label="Target images" type="number" min={1} max={1000} disabled={running} value={target} onChange={e => setTarget(Number(e.target.value))}/></label><button className="primary-action" disabled={previewing || loading || uploading || !scene || (!running && frames.length >= target)} onClick={running ? pause : () => void start()}>{running ? <Pause size={14}/> : <Play size={14}/>} {running ? 'Pause' : frames.length >= target ? 'Complete' : frames.length ? 'Resume' : 'Generate'}</button><button disabled={!frames.length} onClick={() => { setGalleryPage(0); setGalleryOpen(true); }}>Gallery ({frames.length})</button><button disabled={running || !frames.length} onClick={() => void download()}><Download size={14}/>Export YOLO</button><button disabled={running} onClick={() => { setPreview(null); setRun(null); setCameraRange(fixedRange()); setFrames([]); setSelected(null); setNotes([]); setFeedback(''); setStatus('New run · previous images remain saved'); setError(''); }}>New run</button></div></header>
 
     <div className="dataset-progress"><progress value={frames.length} max={target}/><strong>{frames.length} / {target}</strong><span role="status" title={status}>{running ? stage : status}</span>{running && <span className="dataset-throughput">{produced > 0 ? `${(rate * 60).toFixed(1)} images/min  /  ${eta}` : 'Estimating time / '}</span>}</div>
     {!running && run?.generationStats && <div className="dataset-run-timing">{run.generationStats.images} images in {run.generationStats.seconds.toFixed(1)}s</div>}
@@ -414,7 +437,7 @@ export function DatasetGenerator({ scene, context, onProgress, initialRunId, onO
 
     <dialog ref={gallery} className="dataset-gallery-dialog" aria-labelledby="dataset-gallery-title" onCancel={() => setGalleryOpen(false)} onClose={() => setGalleryOpen(false)}>
       <header><div><h2 id="dataset-gallery-title">Image gallery</h2><span>{frames.length} images / {frames.length - reviewCount} ready / {showOriginals ? 'Originals' : 'Training output'}</span></div><button autoFocus aria-label="Close image gallery" onClick={() => setGalleryOpen(false)}><X size={20}/></button></header>
-      {galleryOpen && <div className="dataset-gallery-grid">{frames.slice(galleryPage * 48, (galleryPage + 1) * 48).map(f => <button key={f.id} aria-label={`Inspect image ${f.index}`} onClick={() => { setSelected(f.id); setGalleryOpen(false); }}><FrameImage processing={showOriginals ? undefined : run?.processing} frame={f} loading="lazy"/><span>Image {f.index}<small>{f.recipe.placements.length} occupied</small></span></button>)}</div>}
+      {galleryOpen && <div className="dataset-gallery-grid">{frames.slice(galleryPage * 48, (galleryPage + 1) * 48).map(f => <button key={f.id} aria-label={`Inspect image ${f.index}`} onClick={() => { setPreview(null); setSelected(f.id); setGalleryOpen(false); }}><FrameImage processing={showOriginals ? undefined : run?.processing} frame={f} loading="lazy"/><span>Image {f.index}<small>{f.recipe.placements.length} occupied</small></span></button>)}</div>}
       <footer><button disabled={!galleryPage} onClick={() => setGalleryPage(p => p - 1)}>Previous</button><span>Page {galleryPage + 1} of {Math.max(1, Math.ceil(frames.length / 48))}</span><button disabled={(galleryPage + 1) * 48 >= frames.length} onClick={() => setGalleryPage(p => p + 1)}>Next</button></footer>
     </dialog>
     {error && <div className="copilot-error" role="alert">{error}</div>}
@@ -424,10 +447,10 @@ export function DatasetGenerator({ scene, context, onProgress, initialRunId, onO
 
       <div className="dataset-image">{current ? <div className="dataset-labeled-frame"><FrameImage processing={showOriginals ? undefined : run?.processing} frame={current}/>{showLabels && <svg viewBox="0 0 1280 720" aria-label="Object detection boxes">{current.detections?.filter(d => d.box).map(d => { const [x, y, w, h] = d.box!; const c = design.classes.find(c => c.id === d.classId); return <g key={d.slot} stroke={d.review ? '#ffad52' : c?.color ?? '#60deb6'}><rect x={x * 1280} y={y * 720} width={w * 1280} height={h * 720} fill="none" strokeWidth="2"/><text x={x * 1280 + 4} y={Math.max(16, y * 720 - 5)} stroke="none" fill={d.review ? '#ffad52' : '#fff'} fontSize="17">{c?.name} · {d.slot}{d.review ? ' · review' : ''}</text></g>; })}</svg>}</div> : <div className="dataset-empty"><h2>Your calibrated camera</h2><p>Images appear here as each scene renders.</p></div>}<div ref={host} className="dataset-render-host" style={{ visibility: current ? 'hidden' : 'visible' }} aria-hidden="true"/></div>
 
-      <div className="dataset-caption"><ImageProcessingPanel run={run} frame={current} frames={frames} disabled={running} onSave={updated => { setShowOriginals(false); setRun(updated); latest.current.run = updated; setRuns(previous => previous.map(r => r.id === updated.id ? updated : r)); }}/><span>{current ? `Image ${current.index} · 1280 × 720` : fixedView ? '1280 x 720 / calibrated view' : '1280 x 720 / static mount / variable PTZ'}</span>{current?.recipe.camera && <span>Pan {current.recipe.camera.pan.toFixed(1)}° · Tilt {current.recipe.camera.tilt.toFixed(1)}° · {current.recipe.camera.zoom.toFixed(1)}×</span>}<span>{current ? yoloLabel(current, detectionClasses(design, emptyClass).map(c => c.id)) === null ? 'Held for review' : `${current.detections?.filter(d => d.pixels).length ?? 0} object labels` : 'A3 reserved for waste bin'}</span><button aria-pressed={showOriginals} title="Compare original images without changing training output" onClick={() => setShowOriginals(v => !v)}>{showOriginals ? 'Originals' : 'Training output'}</button><button aria-pressed={showLabels} onClick={() => setShowLabels(v => !v)}>Labels</button>{selected && <button onClick={() => setSelected(null)}>Follow latest</button>}</div>
+      <div className="dataset-caption"><ImageProcessingPanel run={run} frame={current} frames={frames} disabled={running} onSave={updated => { setShowOriginals(false); setRun(updated); latest.current.run = updated; setRuns(previous => previous.map(r => r.id === updated.id ? updated : r)); }}/><span>{current ? `${preview ? 'Isaac preview' : `Image ${current.index}`} · 1280 × 720` : fixedView ? '1280 x 720 / calibrated view' : '1280 x 720 / static mount / variable PTZ'}</span>{current?.recipe.camera && <span>Pan {current.recipe.camera.pan.toFixed(1)}° · Tilt {current.recipe.camera.tilt.toFixed(1)}° · {current.recipe.camera.zoom.toFixed(1)}×</span>}<span>{current ? yoloLabel(current, detectionClasses(design, emptyClass).map(c => c.id)) === null ? 'Held for review' : `${current.detections?.filter(d => d.pixels).length ?? 0} object labels` : 'A3 reserved for waste bin'}</span><button aria-pressed={showOriginals} title="Compare original images without changing training output" onClick={() => setShowOriginals(v => !v)}>{showOriginals ? 'Originals' : 'Training output'}</button><button aria-pressed={showLabels} onClick={() => setShowLabels(v => !v)}>Labels</button>{selected && <button onClick={() => setSelected(null)}>Follow latest</button>}</div>
 
 
-      <div className="dataset-filmstrip" aria-label="Generated images">{frames.slice(-24).map(f => <button key={f.id} aria-label={`View image ${f.index}`} aria-pressed={current?.id === f.id} onClick={() => setSelected(f.id)}><FrameImage processing={showOriginals ? undefined : run?.processing} frame={f}/><span>{f.index}</span></button>)}</div>
+      <div className="dataset-filmstrip" aria-label="Generated images">{frames.slice(-24).map(f => <button key={f.id} aria-label={`View image ${f.index}`} aria-pressed={current?.id === f.id} onClick={() => { setPreview(null); setSelected(f.id); }}><FrameImage processing={showOriginals ? undefined : run?.processing} frame={f}/><span>{f.index}</span></button>)}</div>
 
       {current && <details className="dataset-state-details"><summary>Deck state</summary><div className="dataset-slot-states" aria-label="Deck slot states">{completeDeckState(current).map(s => <div key={s.slot} data-state={s.state} title={`${s.reason} · ${Math.round(s.visibility * 100)}% visible`}><strong>{s.slot}</strong><span>{s.state}</span>{s.state === 'occupied' && <small>{s.assetId === 'fixed-waste-bin' ? 'Waste bin' : design.classes.find(c => c.id === s.classId)?.name}</small>}</div>)}</div></details>}
       {current && <details><summary>Scene labels & recipe</summary><p>{current.recipe.note}</p>{current.recipe.camera && <p>Pan {current.recipe.camera.pan.toFixed(1)}° · Tilt {current.recipe.camera.tilt.toFixed(1)}° · Zoom {current.recipe.camera.zoom.toFixed(2)}×</p>}<div className="dataset-labels">{current.annotations.map(a => <span key={a.slot}>{a.slot} · {a.review ? 'Review' : design.classes.find(c => c.id === a.classId)?.name ?? 'Unmapped'}</span>)}</div></details>}
@@ -444,7 +467,7 @@ export function DatasetGenerator({ scene, context, onProgress, initialRunId, onO
 
       {!!missing.length && <p className="classifier-note">No asset yet: {missing.map(c => c.name).join(', ')}.</p>}
 
-</details><details className="dataset-settings"><summary>Generation settings</summary><div className="dataset-setting-row"><label>Mode<select aria-label="Generation mode" disabled={running} value={generationMode} onChange={e => setGenerationMode(e.target.value as 'bulk' | 'directed')}><option value="bulk">Fast bulk</option><option value="directed">Codex per batch</option></select></label><label>Split<select aria-label="Dataset split" value={split} disabled={running || !!frames.length} onChange={e => setSplit(e.target.value as DatasetRun['split'])}><option value="train">Training</option><option value="validation">Validation</option><option value="test">Test</option></select></label></div>      <section className="dataset-camera"><h2>Camera view</h2>{onSideView && <button disabled={running || !scene} onClick={() => { try { const next = structuredClone(context); next.name = `${context.name.replace(/ · (Side view|Acrylic 10 in)$/, '')} · Acrylic 10 in`; next.savedAt = new Date().toISOString(); next.workspace.tiny2.pose = scene!.datasetSidePose(); next.workspace.flex.joints.front_door_lift_joint = 0; next.workspace.flex.joints.front_door_fold_joint = 0; next.view.horizontalFov = 70; delete next.view.cameraPtz; onSideView(next); } catch (e) { setError((e as Error).message); } }}>Acrylic mount · 10 in</button>}<label><input type="checkbox" aria-label="Lock calibrated camera and lighting" checked={fixedView} disabled={running || !!frames.length} onChange={e => setCameraRange(e.target.checked ? fixedRange() : { pan: [-140, 140], tilt: [-30, 70], zoom: [1, 4] })}/> Lock camera & lighting</label><p className="classifier-note">Keep the saved camera and lighting, or explore a different view.</p>
+</details><details className="dataset-settings"><summary>Generation settings</summary><button disabled={running || previewing || !scene} onClick={() => void previewRenderer('isaac')}>{previewing ? 'Rendering...' : 'Preview Isaac'}</button>{preview && <button disabled={previewing} onClick={() => setPreview(null)}>Close preview</button>}<label>Renderer<select aria-label="Dataset renderer" disabled={running || previewing || !!frames.length} value={renderer} onChange={e => setRenderer(e.target.value as 'browser' | 'isaac')}><option value="browser">Browser - fast</option><option value="isaac">Isaac Sim - experimental</option></select></label><div className="dataset-setting-row"><label>Mode<select aria-label="Generation mode" disabled={running} value={generationMode} onChange={e => setGenerationMode(e.target.value as 'bulk' | 'directed')}><option value="bulk">Fast bulk</option><option value="directed">Codex per batch</option></select></label><label>Split<select aria-label="Dataset split" value={split} disabled={running || !!frames.length} onChange={e => setSplit(e.target.value as DatasetRun['split'])}><option value="train">Training</option><option value="validation">Validation</option><option value="test">Test</option></select></label></div>      <section className="dataset-camera"><h2>Camera view</h2>{onSideView && <button disabled={running || !scene} onClick={() => { try { const next = structuredClone(context); next.name = `${context.name.replace(/ · (Side view|Acrylic 10 in)$/, '')} · Acrylic 10 in`; next.savedAt = new Date().toISOString(); next.workspace.tiny2.pose = scene!.datasetSidePose(); next.workspace.flex.joints.front_door_lift_joint = 0; next.workspace.flex.joints.front_door_fold_joint = 0; next.view.horizontalFov = 70; delete next.view.cameraPtz; onSideView(next); } catch (e) { setError((e as Error).message); } }}>Acrylic mount · 10 in</button>}<label><input type="checkbox" aria-label="Lock calibrated camera and lighting" checked={fixedView} disabled={running || !!frames.length} onChange={e => setCameraRange(e.target.checked ? fixedRange() : { pan: [-140, 140], tilt: [-30, 70], zoom: [1, 4] })}/> Lock camera & lighting</label><p className="classifier-note">Keep the saved camera and lighting, or explore a different view.</p>
 
         {(['pan', 'tilt', 'zoom'] as const).map(axis => <div key={axis} className="dataset-camera-axis"><label>{axis}</label><div>{([0, 1] as const).map(end => <input key={end} aria-label={`${axis} ${end ? 'maximum' : 'minimum'}`} type="number" step={axis === 'zoom' ? .1 : 1} disabled={running || fixedView} value={cameraRange[axis][end]} onChange={e => setCameraRange(previous => ({ ...previous, [axis]: previous[axis].map((v, i) => i === end ? Number(e.target.value) : v) }))}/>)}</div><div className="dataset-coverage" aria-label={`${axis} coverage`}>{coverage[axis].map((count, i) => <span key={i} className={count ? 'covered' : ''} title={`${axis} range bin ${i + 1}: ${count} images`}>{count}</span>)}</div></div>)}
 

@@ -362,11 +362,11 @@ async def start(request:Request):
 
             raise ValueError('Fixed-view detection requires a fixed-camera dataset')
 
-        if not reference.is_file():raise ValueError('Matching real-camera reference is missing')
+        if body.get('source', 'camera') != 'simulation' and not reference.is_file():raise ValueError('Matching real-camera reference is missing')
 
     except (ValueError,KeyError,OSError) as error:raise HTTPException(400,str(error))
 
-    try:runtime.start(complete[0],reference,restore_ptz=body.get('restorePtz',True))
+    try:runtime.start(complete[0],reference,restore_ptz=body.get('restorePtz',True),source=body.get('source','camera'))
 
     except ValueError as e:raise HTTPException(409,str(e))
 
@@ -386,6 +386,29 @@ def public_deck_state():
 
 def stop():runtime.stop();return {'stopped':True}
 
+
+
+@app.post('/runtime/simulation/frame')
+async def simulation_frame(request: Request):
+    import base64
+    import cv2
+    import numpy as np
+    if not runtime.snapshot().get('running') or runtime.source != 'simulation':
+        raise HTTPException(409, 'Start simulated detection first')
+    raw = bytearray()
+    async for chunk in request.stream():
+        raw.extend(chunk)
+        if len(raw) > 4 * 1024 * 1024: raise HTTPException(413, 'Frame too large')
+    try:
+        body = json.loads(raw)
+        encoded = base64.b64decode(body['image'], validate=True)
+        image = cv2.imdecode(np.frombuffer(encoded, np.uint8), cv2.IMREAD_COLOR)
+        if image is None or image.shape[:2] != (720, 1280):
+            raise ValueError('Expected a 1280 x 720 image')
+        runtime.simulated.submit(encoded, body['cameraMatrix'], body['horizontalFov'])
+    except (ValueError, KeyError, TypeError) as error:
+        raise HTTPException(400, str(error))
+    return {'accepted': True}
 
 
 @app.get('/runtime/frame.jpg')
