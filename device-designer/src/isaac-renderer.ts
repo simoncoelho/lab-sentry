@@ -51,7 +51,8 @@ export function isaacSnapshot(scene: THREE.Scene, camera: THREE.PerspectiveCamer
           indices: indices.slice(group.start, group.start + group.count), uv,
           normals: geometry.getAttribute('normal') ? Array.from({ length: position.count }, (_, i) => { const n = geometry.getAttribute('normal'); return [n.getX(i), n.getY(i), n.getZ(i)]; }) : undefined,
           material: { texture: material.map?.uuid, color: material.color?.toArray() ?? [1, 1, 1], roughness: material.roughness ?? .5, metalness: material.metalness ?? 0,
-            opacity: material.transparent ? material.opacity : 1, ior: (material as THREE.MeshPhysicalMaterial).ior ?? 1.5,
+            // USD Preview Surface approximates transmission using opacity until MDL materials are supported.
+            opacity: Math.min(material.transparent ? material.opacity : 1, Math.max(.08, 1 - ((material as THREE.MeshPhysicalMaterial).transmission ?? 0))), ior: (material as THREE.MeshPhysicalMaterial).ior ?? 1.5,
             doubleSided: material.side === THREE.DoubleSide } });
       }
     }

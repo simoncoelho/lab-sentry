@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import type { DatasetAsset } from './dataset';
+import { createFlexTip200Array } from './flex-tip-200';
 
 export function disposeAsset(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -41,7 +42,8 @@ export async function loadDatasetAsset(asset: DatasetAsset): Promise<THREE.Group
       clear.opacity = .68; clear.roughness = .38;
     }
     if (def.parameters.isTiprack) {
-      const length = def.parameters.tipLength, top = h, rackTop = h - length * .38;
+      const detailed200 = def.parameters.loadName === 'opentrons_flex_96_filtertiprack_200ul';
+      const length = def.parameters.tipLength, top = h, rackTop = detailed200 ? top - 6.2 : h - length * .38;
       box(w, d, 3, w / 2, d / 2, 1.5, dark);
       for (const x of [1.5, w - 1.5]) box(3, d, rackTop - 3, x, d / 2, rackTop / 2, dark);
       for (const y of [1.5, d - 1.5]) box(w, 3, rackTop - 3, w / 2, y, rackTop / 2, dark);
@@ -55,12 +57,16 @@ export async function loadDatasetAsset(asset: DatasetAsset): Promise<THREE.Group
       const xs = [...new Set(wells.map(a => a.x))].sort((a,b) => a-b), ys = [...new Set(wells.map(a => a.y))].sort((a,b) => a-b);
       for (const x of [1.5, ...xs.slice(1).map((v,i) => (v + xs[i]) / 2), w - 1.5]) box(2.8, d, 3, x, d / 2, rackTop, plastic);
       for (const y of [1.5, ...ys.slice(1).map((v,i) => (v + ys[i]) / 2), d - 1.5]) box(w, 2.8, 3, w / 2, y, rackTop, plastic);
+      if(detailed200) {
+        root.add(createFlexTip200Array(wells.map(well=>({x:well.x,y:well.y,z:top-length}))));
+      } else {
       const geometry = new THREE.CylinderGeometry(wells[0].diameter / 2, .35, length, 16, 1, true); geometry.rotateX(Math.PI / 2);
       const tips = new THREE.InstancedMesh(geometry, clear, wells.length);
       const rimGeometry = new THREE.TorusGeometry(wells[0].diameter / 2, .22, 6, 16);
       const rims = new THREE.InstancedMesh(rimGeometry, clear, wells.length), matrix = new THREE.Matrix4();
       wells.forEach((well, i) => { tips.setMatrixAt(i, matrix.makeTranslation(well.x, well.y, top - length / 2)); rims.setMatrixAt(i, matrix.makeTranslation(well.x, well.y, top - .22)); });
       root.add(tips, rims);
+      }
     } else {
       box(w, d, 3, w / 2, d / 2, 1.5, clear);
       for (const x of [1, w - 1]) box(2, d, h, x, d / 2, h / 2, clear);
