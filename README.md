@@ -1,5 +1,7 @@
 # Lab Sentry
 
+![Lab Sentry generating labeled synthetic training images](docs/media/generate-dataset.gif)
+
 Local camera-based Opentrons Flex deck detection. Two included YOLO26n models identify labware and deck-slot states. The app shows a live camera view, a 3D deck, and a REST/SSE state API.
 
 ## Windows quick start
